@@ -1,2 +1,2 @@
 # Smart-Healthcare-Web-App
-Web application that has access to medical services, book appointments, and track health records.
+Web application that access medical services, book appointments, and track health records.
