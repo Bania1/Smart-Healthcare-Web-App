@@ -1,0 +1,23 @@
+{
+  "name": "smart-healthcare-web-app",
+  "version": "1.0.0",
+  "description": "Web application that access medical services, book appointments, and track health records.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bania1/Smart-Healthcare-Web-App.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Bania1/Smart-Healthcare-Web-App/issues"
+  },
+  "homepage": "https://github.com/Bania1/Smart-Healthcare-Web-App#readme",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
