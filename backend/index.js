@@ -7,7 +7,7 @@ app.use(express.json());
 
 // Simple route
 app.get('/', (req, res) => {
-  res.send('Hello from the Smart Healthcare App!');
+  res.send('Hello from the Smart Healthcare App by Fran and Angel!');
 });
 
 // Start the server
