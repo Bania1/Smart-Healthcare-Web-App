@@ -1,18 +1,20 @@
-require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-
 const app = express();
-const PORT = process.env.PORT || 5000;
+const usersRoutes = require('./routes/usersRoutes');
 
+// Middleware para parsear JSON
 app.use(express.json());
-app.use(cors());
 
-app.get('/', (req, res) => {
-    res.send('API is running...');
+// Rutas
+app.use('/api/users', usersRoutes);
+
+// Manejo de errores genéricos
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Ocurrió un error en el servidor' });
 });
 
-// Start the server
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Servidor escuchando en http://localhost:${PORT}`);
 });
