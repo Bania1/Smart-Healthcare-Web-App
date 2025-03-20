@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -17,4 +11,78 @@ model User {
   id    Int     @id @default(autoincrement())
   email String  @unique
   name  String?
+}
+
+model appointments {
+  appointment_id                       Int      @id @default(autoincrement())
+  date_time                            DateTime @db.Timestamp(6)
+  status                               String   @db.VarChar(50)
+  doctor_id                            Int?
+  patient_id                           Int?
+  users_appointments_doctor_idTousers  users?   @relation("appointments_doctor_idTousers", fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  users_appointments_patient_idTousers users?   @relation("appointments_patient_idTousers", fields: [patient_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model medical_records {
+  record_id                               Int      @id @default(autoincrement())
+  date                                    DateTime @db.Date
+  notes                                   String?
+  type                                    String   @db.VarChar(50)
+  patient_id                              Int?
+  doctor_id                               Int?
+  users_medical_records_doctor_idTousers  users?   @relation("medical_records_doctor_idTousers", fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  users_medical_records_patient_idTousers users?   @relation("medical_records_patient_idTousers", fields: [patient_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model permissions {
+  permission_id    Int                @id @default(autoincrement())
+  permission_name  String             @unique @db.VarChar(100)
+  role_permissions role_permissions[]
+}
+
+model role_permissions {
+  role_id       Int
+  permission_id Int
+  permissions   permissions @relation(fields: [permission_id], references: [permission_id], onDelete: NoAction, onUpdate: NoAction)
+  roles         roles       @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([role_id, permission_id])
+}
+
+model roles {
+  role_id          Int                @id @default(autoincrement())
+  role_name        String             @unique @db.VarChar(50)
+  role_permissions role_permissions[]
+  user_roles       user_roles[]
+}
+
+model user_roles {
+  user_id Int
+  role_id Int
+  roles   roles @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
+  users   users @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, role_id])
+}
+
+model users {
+  user_id                                           Int               @id @default(autoincrement())
+  name                                              String?           @db.VarChar(255)
+  email                                             String            @unique @db.VarChar(255)
+  password                                          String            @db.VarChar(255)
+  appointments_appointments_doctor_idTousers        appointments[]    @relation("appointments_doctor_idTousers")
+  appointments_appointments_patient_idTousers       appointments[]    @relation("appointments_patient_idTousers")
+  medical_records_medical_records_doctor_idTousers  medical_records[] @relation("medical_records_doctor_idTousers")
+  medical_records_medical_records_patient_idTousers medical_records[] @relation("medical_records_patient_idTousers")
+  user_roles                                        user_roles[]
+  users_details                                     users_details?
+}
+
+model users_details {
+  user_id       Int       @id
+  specialty     String?   @db.VarChar(100)
+  availability  String?   @db.VarChar(100)
+  date_of_birth DateTime? @db.Date
+  contact_info  String?   @db.VarChar(255)
+  users         users     @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 }
