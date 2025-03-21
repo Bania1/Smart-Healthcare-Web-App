@@ -18,3 +18,4 @@ EXPOSE 3000
 
 # Start the application using server.js
 CMD ["node", "server.js"]
+
