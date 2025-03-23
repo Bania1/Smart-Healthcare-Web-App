@@ -3,6 +3,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Import the DTO
+const CreateUserRoleDto = require('../dtos/createUserRole.dto');
+
 /**
  * GET /api/user-roles
  * List all user_roles relationships
@@ -54,22 +57,21 @@ exports.getUserRole = async (req, res) => {
 
 /**
  * POST /api/user-roles
- * Create a new user_role relationship
+ * Create a new user_role relationship using a DTO
  */
 exports.createUserRole = async (req, res) => {
   try {
-    const { user_id, role_id } = req.body;
+    // 1. Instantiate the DTO with request data
+    const dto = new CreateUserRoleDto(req.body);
 
-    // Basic validations
-    if (!user_id || !role_id) {
-      return res.status(400).json({ error: 'Missing required fields (user_id, role_id)' });
-    }
+    // 2. Validate fields (throws error if invalid)
+    dto.validate();
 
-    // Create the relationship
+    // 3. Use dto fields to create the relationship
     const newUR = await prisma.user_roles.create({
       data: {
-        user_id: Number(user_id),
-        role_id: Number(role_id)
+        user_id: Number(dto.user_id),
+        role_id: Number(dto.role_id)
       }
     });
 
@@ -85,7 +87,8 @@ exports.createUserRole = async (req, res) => {
     if (error.code === 'P2003') {
       return res.status(400).json({ error: 'Foreign key violation: user_id or role_id does not exist' });
     }
-    return res.status(500).json({ error: 'Failed to create the user_role relationship' });
+    // If the error is from dto.validate() or anything else, respond accordingly
+    return res.status(400).json({ error: error.message });
   }
 };
 
@@ -144,7 +147,7 @@ exports.updateUserRole = async (req, res) => {
       return res.status(409).json({ error: 'The new relationship already exists' });
     }
     if (error.code === 'P2003') {
-      return res.status(400).json({ error: 'Foreign key violation: user_id or role_id does not exist' });
+      return res.status(400).json({ error: 'Foreign key violation: user_id or role_id do not exist' });
     }
     return res.status(500).json({ error: 'Failed to update the user_role relationship' });
   }
@@ -158,7 +161,7 @@ exports.deleteUserRole = async (req, res) => {
   try {
     const { user_id, role_id } = req.params;
 
-    // Check if the relationship exists
+    // Check if it exists
     const existingUR = await prisma.user_roles.findUnique({
       where: {
         user_id_role_id: {

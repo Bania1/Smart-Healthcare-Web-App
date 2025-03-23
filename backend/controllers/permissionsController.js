@@ -3,6 +3,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Import the DTO
+const CreatePermissionDto = require('../dtos/createPermission.dto');
+
 /**
  * GET /api/permissions
  * Retrieve all permissions
@@ -45,18 +48,19 @@ exports.getPermissionById = async (req, res) => {
 
 /**
  * POST /api/permissions
- * Create a new permission
+ * Create a new permission using a DTO
  */
 exports.createPermission = async (req, res) => {
   try {
-    const { permission_name } = req.body;
+    // 1. Instantiate the DTO with request data
+    const dto = new CreatePermissionDto(req.body);
 
-    if (!permission_name) {
-      return res.status(400).json({ error: 'Missing permission_name field' });
-    }
+    // 2. Validate the fields (throws an error if invalid)
+    dto.validate();
 
+    // 3. Use dto fields to create the permission
     const newPermission = await prisma.permissions.create({
-      data: { permission_name },
+      data: { permission_name: dto.permission_name },
     });
 
     return res.status(201).json(newPermission);
@@ -66,7 +70,8 @@ exports.createPermission = async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(409).json({ error: 'Permission name already exists' });
     }
-    return res.status(500).json({ error: 'Failed to create the permission' });
+    // If the error is from dto.validate() or anything else, respond with 400
+    return res.status(400).json({ error: error.message });
   }
 };
 

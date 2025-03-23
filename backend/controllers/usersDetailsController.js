@@ -3,6 +3,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Import the DTO
+const CreateUserDetailsDto = require('../dtos/createUserDetails.dto');
+
 /**
  * GET /api/users-details
  * Retrieve all users_details records
@@ -45,25 +48,24 @@ exports.getUserDetailsById = async (req, res) => {
 
 /**
  * POST /api/users-details
- * Create a new users_details record
+ * Create a new users_details record using a DTO
  */
 exports.createUserDetails = async (req, res) => {
   try {
-    const { user_id, specialty, availability, date_of_birth, contact_info } = req.body;
+    // 1. Instantiate the DTO with the incoming request body
+    const dto = new CreateUserDetailsDto(req.body);
 
-    // Basic validations
-    if (!user_id) {
-      return res.status(400).json({ error: 'Missing user_id (primary key)' });
-    }
+    // 2. Validate the fields (throws an error if invalid)
+    dto.validate();
 
-    // Insert into the table
+    // 3. Use dto fields to create the users_details record
     const newDetails = await prisma.users_details.create({
       data: {
-        user_id: Number(user_id),
-        specialty,
-        availability,
-        date_of_birth: date_of_birth ? new Date(date_of_birth) : null,
-        contact_info
+        user_id: Number(dto.user_id),
+        specialty: dto.specialty,
+        availability: dto.availability,
+        date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
+        contact_info: dto.contact_info
       }
     });
 
@@ -71,16 +73,17 @@ exports.createUserDetails = async (req, res) => {
   } catch (error) {
     console.error('Error in createUserDetails:', error);
 
-    // P2002 = unique constraint. Means a users_details record for that user_id already exists
+    // P2002 = unique constraint (already a users_details record for that user_id)
     if (error.code === 'P2002') {
       return res.status(409).json({ error: 'A users_details record already exists for that user_id' });
     }
-    // P2003 = foreign key constraint. user_id does not exist in "users" table
+    // P2003 = foreign key violation (user_id not existing in "users" table)
     if (error.code === 'P2003') {
       return res.status(400).json({ error: 'Foreign key violation: user_id does not exist in the "users" table' });
     }
 
-    return res.status(500).json({ error: 'Failed to create users_details record' });
+    // If the error was thrown by dto.validate() or anything else, respond accordingly
+    return res.status(400).json({ error: error.message });
   }
 };
 

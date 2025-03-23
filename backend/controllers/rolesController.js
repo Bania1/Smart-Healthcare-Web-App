@@ -3,6 +3,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Import the DTO
+const CreateRoleDto = require('../dtos/createRole.dto');
+
 /**
  * GET /api/roles
  * Retrieve all roles
@@ -42,18 +45,19 @@ exports.getRoleById = async (req, res) => {
 
 /**
  * POST /api/roles
- * Create a new role
+ * Create a new role using a DTO
  */
 exports.createRole = async (req, res) => {
   try {
-    const { role_name } = req.body;
+    // 1. Instantiate the DTO with request data
+    const dto = new CreateRoleDto(req.body);
 
-    if (!role_name) {
-      return res.status(400).json({ error: 'Missing role_name field' });
-    }
+    // 2. Validate the fields (throws an error if invalid)
+    dto.validate();
 
+    // 3. Use dto fields to create the role
     const newRole = await prisma.roles.create({
-      data: { role_name },
+      data: { role_name: dto.role_name },
     });
 
     return res.status(201).json(newRole);
@@ -65,7 +69,8 @@ exports.createRole = async (req, res) => {
       return res.status(409).json({ error: 'Role name already exists' });
     }
 
-    return res.status(500).json({ error: 'Failed to create the role' });
+    // If the error is from dto.validate() or anything else, respond with 400
+    return res.status(400).json({ error: error.message });
   }
 };
 

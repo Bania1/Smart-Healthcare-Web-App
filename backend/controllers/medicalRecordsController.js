@@ -3,6 +3,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Import your DTO
+const CreateMedicalRecordDto = require('../dtos/createMedicalRecord.dto');
+
 /**
  * GET /api/medical-records
  * Retrieve all medical records
@@ -26,7 +29,7 @@ exports.getMedicalRecordById = async (req, res) => {
     const { id } = req.params;
     const record = await prisma.medical_records.findUnique({
       where: { record_id: Number(id) },
-      // If you want to include doctor/patient info, you can do:
+      // If you want to include doctor/patient info:
       // include: {
       //   users_medical_records_doctor_idTousers: true,
       //   users_medical_records_patient_idTousers: true
@@ -46,26 +49,28 @@ exports.getMedicalRecordById = async (req, res) => {
 
 /**
  * POST /api/medical-records
- * Create a new medical record
+ * Create a new medical record using a DTO
  */
 exports.createMedicalRecord = async (req, res) => {
   try {
-    const { date, notes, type, patient_id, doctor_id } = req.body;
+    // 1. Instantiate the DTO with the incoming request body
+    const dto = new CreateMedicalRecordDto(req.body);
 
-    // Basic date parsing if it's a string
-    const parsedDate = date ? new Date(date) : null;
+    // 2. Validate the fields (throws an error if invalid)
+    dto.validate();
 
-    // Optionally, you could validate 'type' or check if 'patient_id'/'doctor_id' exist.
-    // For now, let's assume it's valid.
+    // 3. Parse date if provided
+    const parsedDate = dto.date ? new Date(dto.date) : null;
 
+    // 4. Create the medical record using the DTO fields
     try {
       const newRecord = await prisma.medical_records.create({
         data: {
           date: parsedDate,
-          notes,
-          type,
-          patient_id,
-          doctor_id,
+          notes: dto.notes,
+          type: dto.type,
+          patient_id: dto.patient_id,
+          doctor_id: dto.doctor_id
         },
       });
 
@@ -73,23 +78,24 @@ exports.createMedicalRecord = async (req, res) => {
     } catch (createError) {
       console.error('Error in createMedicalRecord (Prisma):', createError);
 
-      // If there's a foreign key violation (e.g., patient_id or doctor_id not existing), Prisma throws P2003
+      // If there's a foreign key violation (e.g., patient_id or doctor_id not existing)
       if (createError.code === 'P2003') {
         return res.status(400).json({
-          error: 'Foreign key violation: patient_id or doctor_id do not exist',
+          error: 'Foreign key violation: patient_id or doctor_id do not exist'
         });
       }
-      // If there's a unique constraint violation (less likely here, unless you have constraints)
+      // If there's a unique constraint violation
       if (createError.code === 'P2002') {
         return res.status(409).json({
-          error: 'A record with these constraints already exists',
+          error: 'A record with these constraints already exists'
         });
       }
       return res.status(500).json({ error: 'Failed to create the medical record' });
     }
   } catch (error) {
     console.error('Error in createMedicalRecord (general):', error);
-    return res.status(500).json({ error: 'Internal error while creating the medical record' });
+    // If the DTO validation fails, or any other error, respond accordingly
+    return res.status(400).json({ error: error.message });
   }
 };
 
@@ -110,7 +116,6 @@ exports.updateMedicalRecord = async (req, res) => {
       return res.status(404).json({ error: 'Medical record not found' });
     }
 
-    // Attempt to update
     try {
       const updatedRecord = await prisma.medical_records.update({
         where: { record_id: Number(id) },
