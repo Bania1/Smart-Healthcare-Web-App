@@ -2,20 +2,22 @@
 const express = require('express');
 const router = express.Router();
 const rolesController = require('../controllers/rolesController');
+// Import your authentication middleware
+const authMiddleware = require('../middleware/authMiddleware');
 
-// GET all roles
-router.get('/', rolesController.getAllRoles);
+// GET all roles (protected)
+router.get('/', authMiddleware, rolesController.getAllRoles);
 
-// GET role by ID
-router.get('/:id', rolesController.getRoleById);
+// GET role by ID (protected)
+router.get('/:id', authMiddleware, rolesController.getRoleById);
 
-// POST create role
-router.post('/', rolesController.createRole);
+// POST create role (protected)
+router.post('/', authMiddleware, rolesController.createRole);
 
-// PUT update role
-router.put('/:id', rolesController.updateRole);
+// PUT update role (protected)
+router.put('/:id', authMiddleware, rolesController.updateRole);
 
-// DELETE role
-router.delete('/:id', rolesController.deleteRole);
+// DELETE role (protected)
+router.delete('/:id', authMiddleware, rolesController.deleteRole);
 
 module.exports = router;

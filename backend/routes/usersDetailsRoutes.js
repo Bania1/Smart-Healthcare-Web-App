@@ -2,20 +2,22 @@
 const express = require('express');
 const router = express.Router();
 const detailsController = require('../controllers/usersDetailsController');
+// Import your authentication middleware
+const authMiddleware = require('../middleware/authMiddleware');
 
-// GET all users_details
-router.get('/', detailsController.getAllUsersDetails);
+// GET all users_details (protected)
+router.get('/', authMiddleware, detailsController.getAllUsersDetails);
 
-// GET one by user_id
-router.get('/:user_id', detailsController.getUserDetailsById);
+// GET one by user_id (protected)
+router.get('/:user_id', authMiddleware, detailsController.getUserDetailsById);
 
-// POST create
-router.post('/', detailsController.createUserDetails);
+// POST create (protected)
+router.post('/', authMiddleware, detailsController.createUserDetails);
 
-// PUT update
-router.put('/:user_id', detailsController.updateUserDetails);
+// PUT update (protected)
+router.put('/:user_id', authMiddleware, detailsController.updateUserDetails);
 
-// DELETE remove
-router.delete('/:user_id', detailsController.deleteUserDetails);
+// DELETE remove (protected)
+router.delete('/:user_id', authMiddleware, detailsController.deleteUserDetails);
 
 module.exports = router;
