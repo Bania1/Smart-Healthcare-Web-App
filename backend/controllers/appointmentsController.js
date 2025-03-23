@@ -5,29 +5,29 @@ const prisma = new PrismaClient();
 
 /**
  * GET /api/appointments
- * Obtener todas las citas
+ * Retrieve all appointments
  */
 exports.getAllAppointments = async (req, res) => {
   try {
-    // Busca todos los registros en la tabla "appointments"
+    // Fetch all records from the "appointments" table
     const allAppointments = await prisma.appointments.findMany();
     return res.status(200).json(allAppointments);
   } catch (error) {
-    console.error('Error en getAllAppointments:', error);
-    return res.status(500).json({ error: 'Error al obtener las citas' });
+    console.error('Error in getAllAppointments:', error);
+    return res.status(500).json({ error: 'Failed to retrieve appointments' });
   }
 };
 
 /**
  * GET /api/appointments/:id
- * Obtener una cita por ID
+ * Retrieve an appointment by ID
  */
 exports.getAppointmentById = async (req, res) => {
   try {
     const { id } = req.params;
     const appointment = await prisma.appointments.findUnique({
       where: { appointment_id: Number(id) },
-      // Si quieres incluir la relación con el doctor y el paciente, puedes hacer:
+      // If you want to include doctor/patient data, you can do:
       // include: {
       //   users_appointments_doctor_idTousers: true,
       //   users_appointments_patient_idTousers: true
@@ -35,94 +35,129 @@ exports.getAppointmentById = async (req, res) => {
     });
 
     if (!appointment) {
-      return res.status(404).json({ error: 'Cita no encontrada' });
+      return res.status(404).json({ error: 'Appointment not found' });
     }
 
     return res.status(200).json(appointment);
   } catch (error) {
-    console.error('Error en getAppointmentById:', error);
-    return res.status(500).json({ error: 'Error al obtener la cita' });
+    console.error('Error in getAppointmentById:', error);
+    return res.status(500).json({ error: 'Failed to retrieve the appointment' });
   }
 };
 
 /**
  * POST /api/appointments
- * Crear una nueva cita
+ * Create a new appointment
  */
 exports.createAppointment = async (req, res) => {
   try {
     const { date_time, status, doctor_id, patient_id } = req.body;
 
-    // Ejemplo de validaciones mínimas (puedes personalizarlas)
+    // Basic validations
     if (!date_time || !status) {
-      return res.status(400).json({ error: 'Faltan campos obligatorios (date_time, status)' });
+      return res.status(400).json({ error: 'Missing required fields (date_time, status)' });
     }
 
-    const newAppointment = await prisma.appointments.create({
-      data: {
-        date_time: new Date(date_time), // Asegúrate de parsear correctamente
-        status,
-        doctor_id,
-        patient_id
-      },
-    });
+    try {
+      const newAppointment = await prisma.appointments.create({
+        data: {
+          date_time: new Date(date_time), // Ensure proper parsing
+          status,
+          doctor_id,
+          patient_id
+        },
+      });
 
-    return res.status(201).json(newAppointment);
+      return res.status(201).json(newAppointment);
+    } catch (createError) {
+      console.error('Error in createAppointment (Prisma):', createError);
+
+      // If there's a foreign key violation (P2003), e.g., doctor_id or patient_id not existing
+      if (createError.code === 'P2003') {
+        return res.status(400).json({
+          error: 'Foreign key violation: doctor_id or patient_id do not exist'
+        });
+      }
+      // If there's a unique constraint violation (P2002), if you had constraints
+      // e.g., same date/time with same doctor not allowed
+      if (createError.code === 'P2002') {
+        return res.status(409).json({
+          error: 'An appointment with these constraints already exists'
+        });
+      }
+      return res.status(500).json({ error: 'Failed to create the appointment' });
+    }
   } catch (error) {
-    console.error('Error en createAppointment:', error);
-    return res.status(500).json({ error: 'Error al crear la cita' });
+    console.error('Error in createAppointment (general):', error);
+    return res.status(500).json({ error: 'Internal error while creating the appointment' });
   }
 };
 
 /**
  * PUT /api/appointments/:id
- * Actualizar una cita existente
+ * Update an existing appointment
  */
 exports.updateAppointment = async (req, res) => {
   try {
     const { id } = req.params;
     const { date_time, status, doctor_id, patient_id } = req.body;
 
-    // Verificar si existe
+    // Check if it exists
     const existingAppointment = await prisma.appointments.findUnique({
       where: { appointment_id: Number(id) },
     });
     if (!existingAppointment) {
-      return res.status(404).json({ error: 'Cita no encontrada' });
+      return res.status(404).json({ error: 'Appointment not found' });
     }
 
-    const updatedAppointment = await prisma.appointments.update({
-      where: { appointment_id: Number(id) },
-      data: {
-        // Si envías date_time, conviértelo a Date. Si no lo envías, conserva el existente
-        date_time: date_time ? new Date(date_time) : existingAppointment.date_time,
-        status: status ?? existingAppointment.status,
-        doctor_id: doctor_id ?? existingAppointment.doctor_id,
-        patient_id: patient_id ?? existingAppointment.patient_id
-      },
-    });
+    try {
+      const updatedAppointment = await prisma.appointments.update({
+        where: { appointment_id: Number(id) },
+        data: {
+          // If date_time is sent, convert to Date; otherwise, keep existing
+          date_time: date_time ? new Date(date_time) : existingAppointment.date_time,
+          status: status ?? existingAppointment.status,
+          doctor_id: doctor_id ?? existingAppointment.doctor_id,
+          patient_id: patient_id ?? existingAppointment.patient_id
+        },
+      });
 
-    return res.status(200).json(updatedAppointment);
+      return res.status(200).json(updatedAppointment);
+    } catch (updateError) {
+      console.error('Error in updateAppointment (Prisma):', updateError);
+
+      if (updateError.code === 'P2003') {
+        return res.status(400).json({
+          error: 'Foreign key violation: doctor_id or patient_id do not exist'
+        });
+      }
+      if (updateError.code === 'P2002') {
+        return res.status(409).json({
+          error: 'An appointment with these constraints already exists'
+        });
+      }
+      return res.status(500).json({ error: 'Failed to update the appointment' });
+    }
   } catch (error) {
-    console.error('Error en updateAppointment:', error);
-    return res.status(500).json({ error: 'Error al actualizar la cita' });
+    console.error('Error in updateAppointment (general):', error);
+    return res.status(500).json({ error: 'Internal error while updating the appointment' });
   }
 };
 
 /**
  * DELETE /api/appointments/:id
- * Eliminar una cita
+ * Delete an appointment
  */
 exports.deleteAppointment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar si existe
+    // Check if it exists
     const existingAppointment = await prisma.appointments.findUnique({
       where: { appointment_id: Number(id) },
     });
     if (!existingAppointment) {
-      return res.status(404).json({ error: 'Cita no encontrada' });
+      return res.status(404).json({ error: 'Appointment not found' });
     }
 
     await prisma.appointments.delete({
@@ -131,7 +166,7 @@ exports.deleteAppointment = async (req, res) => {
 
     return res.status(204).send(); // No Content
   } catch (error) {
-    console.error('Error en deleteAppointment:', error);
-    return res.status(500).json({ error: 'Error al eliminar la cita' });
+    console.error('Error in deleteAppointment:', error);
+    return res.status(500).json({ error: 'Failed to delete the appointment' });
   }
 };
