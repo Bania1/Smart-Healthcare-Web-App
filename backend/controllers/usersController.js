@@ -5,57 +5,55 @@ const prisma = new PrismaClient();
 
 /**
  * GET /api/users
- * Obtener todos los usuarios
+ * Retrieve all users
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    // Busca todos los registros en la tabla "users"
     const allUsers = await prisma.users.findMany();
     return res.status(200).json(allUsers);
   } catch (error) {
-    console.error('Error en getAllUsers:', error);
-    return res.status(500).json({ error: 'Error al obtener los usuarios' });
+    console.error('Error in getAllUsers:', error);
+    return res.status(500).json({ error: 'Failed to retrieve users' });
   }
 };
 
 /**
  * GET /api/users/:id
- * Obtener un usuario por ID
+ * Retrieve a user by ID
  */
 exports.getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    // user_id es la primary key en tu modelo "users"
     const user = await prisma.users.findUnique({
       where: { user_id: Number(id) },
-      // include: { users_details: true } // Descomenta si quieres traer detalles relacionados
+      // include: { users_details: true } // Uncomment if you want to include related details
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     return res.status(200).json(user);
   } catch (error) {
-    console.error('Error en getUserById:', error);
-    return res.status(500).json({ error: 'Error al obtener el usuario' });
+    console.error('Error in getUserById:', error);
+    return res.status(500).json({ error: 'Failed to retrieve user' });
   }
 };
 
 /**
  * POST /api/users
- * Crear un nuevo usuario
+ * Create a new user
  */
 exports.createUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Ejemplo de validación mínima:
+    // Basic validation
     if (!email || !password) {
-      return res.status(400).json({ error: 'Faltan campos obligatorios (email, password)' });
+      return res.status(400).json({ error: 'Missing required fields (email, password)' });
     }
 
-    // Si deseas encriptar la contraseña, podrías usar bcrypt aquí
+    // Example: encrypt password with bcrypt (optional)
     // const salt = await bcrypt.genSalt(10);
     // const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -63,72 +61,90 @@ exports.createUser = async (req, res) => {
       data: {
         name,
         email,
-        password, // o hashedPassword si encriptas
+        password, // or hashedPassword if encrypted
       },
     });
 
     return res.status(201).json(newUser);
   } catch (error) {
-    console.error('Error en createUser:', error);
-    return res.status(500).json({ error: 'Error al crear el usuario' });
+    console.error('Error in createUser:', error);
+
+    // Handle specific Prisma errors
+    if (error.code === 'P2002') {
+      // Unique constraint (e.g., duplicate email)
+      return res.status(409).json({ error: 'Email already in use' });
+    }
+    // e.g., error.code === 'P2003' would be a foreign key constraint
+
+    return res.status(500).json({ error: 'Failed to create user' });
   }
 };
 
 /**
  * PUT /api/users/:id
- * Actualizar un usuario
+ * Update a user
  */
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, password } = req.body;
 
-    // Verificar si existe
+    // Check if the user exists
     const existingUser = await prisma.users.findUnique({
       where: { user_id: Number(id) },
     });
     if (!existingUser) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Si quieres encriptar la contraseña, hazlo aquí antes del update
+    // If you want to encrypt password here, do so
     // if (password) {
     //   const salt = await bcrypt.genSalt(10);
     //   req.body.password = await bcrypt.hash(password, salt);
     // }
 
-    const updatedUser = await prisma.users.update({
-      where: { user_id: Number(id) },
-      data: { name, email, password },
-    });
+    try {
+      const updatedUser = await prisma.users.update({
+        where: { user_id: Number(id) },
+        data: { name, email, password },
+      });
+      return res.status(200).json(updatedUser);
+    } catch (updateError) {
+      console.error('Error in updateUser (Prisma):', updateError);
 
-    return res.status(200).json(updatedUser);
+      if (updateError.code === 'P2002') {
+        // Duplicate email or another unique constraint
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+
+      return res.status(500).json({ error: 'Failed to update user' });
+    }
   } catch (error) {
-    console.error('Error en updateUser:', error);
-    return res.status(500).json({ error: 'Error al actualizar el usuario' });
+    console.error('Error in updateUser (general):', error);
+    return res.status(500).json({ error: 'Internal error while updating user' });
   }
 };
 
 /**
  * DELETE /api/users/:id
- * Eliminar un usuario
+ * Delete a user
  */
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar si existe
+    // Check if the user exists
     const existingUser = await prisma.users.findUnique({
       where: { user_id: Number(id) },
     });
     if (!existingUser) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     await prisma.users.delete({ where: { user_id: Number(id) } });
     return res.status(204).send(); // No Content
   } catch (error) {
-    console.error('Error en deleteUser:', error);
-    return res.status(500).json({ error: 'Error al eliminar el usuario' });
+    console.error('Error in deleteUser:', error);
+    return res.status(500).json({ error: 'Failed to delete user' });
   }
 };

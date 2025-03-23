@@ -5,51 +5,51 @@ const prisma = new PrismaClient();
 
 /**
  * GET /api/roles
- * Obtener todos los roles
+ * Retrieve all roles
  */
 exports.getAllRoles = async (req, res) => {
   try {
     const allRoles = await prisma.roles.findMany();
     return res.status(200).json(allRoles);
   } catch (error) {
-    console.error('Error en getAllRoles:', error);
-    return res.status(500).json({ error: 'Error al obtener los roles' });
+    console.error('Error in getAllRoles:', error);
+    return res.status(500).json({ error: 'Failed to retrieve roles' });
   }
 };
 
 /**
  * GET /api/roles/:id
- * Obtener un rol por ID
+ * Retrieve a role by ID
  */
 exports.getRoleById = async (req, res) => {
   try {
     const { id } = req.params;
     const role = await prisma.roles.findUnique({
       where: { role_id: Number(id) },
-      // include: { role_permissions: true, user_roles: true } // si quieres traer relaciones
+      // include: { role_permissions: true, user_roles: true } // if you want to include relations
     });
 
     if (!role) {
-      return res.status(404).json({ error: 'Rol no encontrado' });
+      return res.status(404).json({ error: 'Role not found' });
     }
 
     return res.status(200).json(role);
   } catch (error) {
-    console.error('Error en getRoleById:', error);
-    return res.status(500).json({ error: 'Error al obtener el rol' });
+    console.error('Error in getRoleById:', error);
+    return res.status(500).json({ error: 'Failed to retrieve the role' });
   }
 };
 
 /**
  * POST /api/roles
- * Crear un nuevo rol
+ * Create a new role
  */
 exports.createRole = async (req, res) => {
   try {
     const { role_name } = req.body;
 
     if (!role_name) {
-      return res.status(400).json({ error: 'Falta el campo role_name' });
+      return res.status(400).json({ error: 'Missing role_name field' });
     }
 
     const newRole = await prisma.roles.create({
@@ -58,63 +58,73 @@ exports.createRole = async (req, res) => {
 
     return res.status(201).json(newRole);
   } catch (error) {
-    console.error('Error en createRole:', error);
-    // Manejo de error por unique constraint (P2002) si role_name ya existe
+    console.error('Error in createRole:', error);
+
+    // Handle unique constraint error (P2002) if role_name already exists
     if (error.code === 'P2002') {
-      return res.status(409).json({ error: 'El nombre del rol ya existe' });
+      return res.status(409).json({ error: 'Role name already exists' });
     }
-    return res.status(500).json({ error: 'Error al crear el rol' });
+
+    return res.status(500).json({ error: 'Failed to create the role' });
   }
 };
 
 /**
  * PUT /api/roles/:id
- * Actualizar un rol
+ * Update a role
  */
 exports.updateRole = async (req, res) => {
   try {
     const { id } = req.params;
     const { role_name } = req.body;
 
-    // Verificamos si existe
+    // Check if the role exists
     const existingRole = await prisma.roles.findUnique({
       where: { role_id: Number(id) },
     });
     if (!existingRole) {
-      return res.status(404).json({ error: 'Rol no encontrado' });
+      return res.status(404).json({ error: 'Role not found' });
     }
 
-    const updatedRole = await prisma.roles.update({
-      where: { role_id: Number(id) },
-      data: {
-        role_name: role_name ?? existingRole.role_name,
-      },
-    });
+    try {
+      const updatedRole = await prisma.roles.update({
+        where: { role_id: Number(id) },
+        data: {
+          role_name: role_name ?? existingRole.role_name,
+        },
+      });
 
-    return res.status(200).json(updatedRole);
+      return res.status(200).json(updatedRole);
+    } catch (updateError) {
+      console.error('Error in updateRole (Prisma):', updateError);
+
+      if (updateError.code === 'P2002') {
+        // role_name conflict
+        return res.status(409).json({ error: 'Role name already exists' });
+      }
+
+      return res.status(500).json({ error: 'Failed to update the role' });
+    }
   } catch (error) {
-    console.error('Error en updateRole:', error);
-    if (error.code === 'P2002') {
-      return res.status(409).json({ error: 'El nombre del rol ya existe' });
-    }
-    return res.status(500).json({ error: 'Error al actualizar el rol' });
+    console.error('Error in updateRole (general):', error);
+    return res.status(500).json({ error: 'Internal error while updating the role' });
   }
 };
 
 /**
  * DELETE /api/roles/:id
- * Eliminar un rol
+ * Delete a role
  */
 exports.deleteRole = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificamos si existe
+    // Check if the role exists
     const existingRole = await prisma.roles.findUnique({
       where: { role_id: Number(id) },
     });
     if (!existingRole) {
-      return res.status(404).json({ error: 'Rol no encontrado' });
+      return res.status(404).json({ error: 'Role not found' });
     }
 
     await prisma.roles.delete({
@@ -123,7 +133,7 @@ exports.deleteRole = async (req, res) => {
 
     return res.status(204).send(); // No Content
   } catch (error) {
-    console.error('Error en deleteRole:', error);
-    return res.status(500).json({ error: 'Error al eliminar el rol' });
+    console.error('Error in deleteRole:', error);
+    return res.status(500).json({ error: 'Failed to delete the role' });
   }
 };

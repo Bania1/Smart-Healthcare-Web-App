@@ -5,12 +5,12 @@ const prisma = new PrismaClient();
 
 /**
  * GET /api/role-permissions
- * Listar todas las relaciones role_permissions
+ * List all role_permissions relationships
  */
 exports.getAllRolePermissions = async (req, res) => {
   try {
     const allRP = await prisma.role_permissions.findMany({
-      // Si quieres incluir los datos de roles o permissions, puedes usar include:
+      // If you want to include data from the "roles" or "permissions" tables, you can do:
       // include: {
       //   roles: true,
       //   permissions: true
@@ -18,14 +18,14 @@ exports.getAllRolePermissions = async (req, res) => {
     });
     return res.status(200).json(allRP);
   } catch (error) {
-    console.error('Error en getAllRolePermissions:', error);
-    return res.status(500).json({ error: 'Error al obtener las relaciones roles-permissions' });
+    console.error('Error in getAllRolePermissions:', error);
+    return res.status(500).json({ error: 'Failed to retrieve role_permissions relationships' });
   }
 };
 
 /**
  * GET /api/role-permissions/:role_id/:permission_id
- * Obtener una relación específica por la clave compuesta
+ * Retrieve a specific relationship by the composite key
  */
 exports.getRolePermission = async (req, res) => {
   try {
@@ -38,34 +38,34 @@ exports.getRolePermission = async (req, res) => {
           permission_id: Number(permission_id)
         }
       },
-      // include: { roles: true, permissions: true } // si deseas datos de las otras tablas
+      // include: { roles: true, permissions: true } // if you want related data
     });
 
     if (!rp) {
-      return res.status(404).json({ error: 'Relación role_permission no encontrada' });
+      return res.status(404).json({ error: 'role_permission relationship not found' });
     }
 
     return res.status(200).json(rp);
   } catch (error) {
-    console.error('Error en getRolePermission:', error);
-    return res.status(500).json({ error: 'Error al obtener la relación role_permission' });
+    console.error('Error in getRolePermission:', error);
+    return res.status(500).json({ error: 'Failed to retrieve the role_permission relationship' });
   }
 };
 
 /**
  * POST /api/role-permissions
- * Crear una nueva relación role_permission
+ * Create a new role_permission relationship
  */
 exports.createRolePermission = async (req, res) => {
   try {
     const { role_id, permission_id } = req.body;
 
-    // Validaciones mínimas
+    // Basic validations
     if (!role_id || !permission_id) {
-      return res.status(400).json({ error: 'Faltan campos obligatorios (role_id, permission_id)' });
+      return res.status(400).json({ error: 'Missing required fields (role_id, permission_id)' });
     }
 
-    // Creamos la relación
+    // Create the relationship
     const newRP = await prisma.role_permissions.create({
       data: {
         role_id: Number(role_id),
@@ -75,26 +75,30 @@ exports.createRolePermission = async (req, res) => {
 
     return res.status(201).json(newRP);
   } catch (error) {
-    console.error('Error en createRolePermission:', error);
-    // Si ya existe esa relación (clave compuesta duplicada), Prisma lanza un error code P2002
+    console.error('Error in createRolePermission:', error);
+    // If this relationship already exists (duplicate composite key), Prisma throws P2002
     if (error.code === 'P2002') {
-      return res.status(409).json({ error: 'Ya existe esta relación role_id-permission_id' });
+      return res.status(409).json({ error: 'This role_id-permission_id relationship already exists' });
     }
-    return res.status(500).json({ error: error.message }); 
+    // If it's a foreign key error (P2003), role_id or permission_id does not exist in their respective tables
+    if (error.code === 'P2003') {
+      return res.status(400).json({ error: 'Foreign key violation: role_id or permission_id do not exist' });
+    }
+    return res.status(500).json({ error: error.message });
   }
 };
 
 /**
  * PUT /api/role-permissions/:role_id/:permission_id
- * Actualizar una relación role_permission
- * (No siempre tiene sentido "actualizar" la clave compuesta, pero lo ponemos a modo de ejemplo)
+ * Update a role_permission relationship
+ * (It usually doesn't make sense to "update" the composite key, but here's an example)
  */
 exports.updateRolePermission = async (req, res) => {
   try {
     const { role_id, permission_id } = req.params;
     const { new_role_id, new_permission_id } = req.body;
 
-    // Verificamos si existe
+    // Check if the current relationship exists
     const existingRP = await prisma.role_permissions.findUnique({
       where: {
         role_id_permission_id: {
@@ -104,17 +108,13 @@ exports.updateRolePermission = async (req, res) => {
       }
     });
     if (!existingRP) {
-      return res.status(404).json({ error: 'Relación role_permission no encontrada' });
+      return res.status(404).json({ error: 'role_permission relationship not found' });
     }
 
-    // Si deseas "mover" la relación a otros IDs (p.ej., role_id=2, permission_id=5),
-    // Prisma no te deja cambiar la PK directamente en un update. Tienes que borrar y volver a crear,
-    // o usar un upsert. Pero a modo de ejemplo, lo hacemos con delete+create o con la API de updateMany.
-
-    // Aquí, la forma más directa: borra la relación actual y crea la nueva
-    // (OJO: no es un "update" real de la PK compuesta)
+    // If we want to "move" the relationship to (new_role_id, new_permission_id),
+    // Prisma doesn't allow directly updating the composite PK. We delete and recreate instead.
     if (new_role_id || new_permission_id) {
-      // Borrar la relación actual
+      // Delete the current relationship
       await prisma.role_permissions.delete({
         where: {
           role_id_permission_id: {
@@ -124,7 +124,7 @@ exports.updateRolePermission = async (req, res) => {
         }
       });
 
-      // Crear la nueva relación
+      // Create the new relationship
       const newRP = await prisma.role_permissions.create({
         data: {
           role_id: new_role_id ? Number(new_role_id) : Number(role_id),
@@ -135,27 +135,31 @@ exports.updateRolePermission = async (req, res) => {
       return res.status(200).json(newRP);
     }
 
-    // Si no hay cambios en la PK, no hay nada que actualizar.
+    // If the composite key doesn't change, there's nothing to update
     return res.status(200).json(existingRP);
   } catch (error) {
-    console.error('Error en updateRolePermission:', error);
-    // P2002 si ya existe esa relación
+    console.error('Error in updateRolePermission:', error);
+    // If the new composite key already exists
     if (error.code === 'P2002') {
-      return res.status(409).json({ error: 'La nueva relación ya existe' });
+      return res.status(409).json({ error: 'The new relationship already exists' });
     }
-    return res.status(500).json({ error: 'Error al actualizar la relación role_permission' });
+    // If there's a foreign key violation
+    if (error.code === 'P2003') {
+      return res.status(400).json({ error: 'Foreign key violation: role_id or permission_id do not exist' });
+    }
+    return res.status(500).json({ error: 'Failed to update the role_permission relationship' });
   }
 };
 
 /**
  * DELETE /api/role-permissions/:role_id/:permission_id
- * Eliminar una relación role_permission
+ * Delete a role_permission relationship
  */
 exports.deleteRolePermission = async (req, res) => {
   try {
     const { role_id, permission_id } = req.params;
 
-    // Verificamos si existe
+    // Check if it exists
     const existingRP = await prisma.role_permissions.findUnique({
       where: {
         role_id_permission_id: {
@@ -165,7 +169,7 @@ exports.deleteRolePermission = async (req, res) => {
       }
     });
     if (!existingRP) {
-      return res.status(404).json({ error: 'Relación role_permission no encontrada' });
+      return res.status(404).json({ error: 'role_permission relationship not found' });
     }
 
     await prisma.role_permissions.delete({
@@ -179,7 +183,7 @@ exports.deleteRolePermission = async (req, res) => {
 
     return res.status(204).send(); // No Content
   } catch (error) {
-    console.error('Error en deleteRolePermission:', error);
-    return res.status(500).json({ error: 'Error al eliminar la relación role_permission' });
+    console.error('Error in deleteRolePermission:', error);
+    return res.status(500).json({ error: 'Failed to delete the role_permission relationship' });
   }
 };
