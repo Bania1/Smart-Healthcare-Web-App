@@ -2,22 +2,30 @@
 const express = require('express');
 const router = express.Router();
 const appointmentsController = require('../controllers/appointmentsController');
-// Import your authentication middleware
+// Middlewares
 const authMiddleware = require('../middleware/authMiddleware');
+const roleMiddleware = require('../middleware/roleMiddleware');
 
-// GET all appointments (protected)
-router.get('/', authMiddleware, appointmentsController.getAllAppointments);
+/**
+ * For demonstration, let's assume:
+ * - Only a "Doctor" can GET, POST, or PUT appointments.
+ * - Only an "Admin" can also GET ,POST, PUT or DELETE appointments.
+ */
 
-// GET appointment by ID (protected)
-router.get('/:id', authMiddleware, appointmentsController.getAppointmentById);
 
-// POST create appointment (protected)
-router.post('/', authMiddleware, appointmentsController.createAppointment);
+// GET all appointments => either "Doctor" or "Admin" can do it
+router.get('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), appointmentsController.getAllAppointments);
 
-// PUT update appointment (protected)
-router.put('/:id', authMiddleware, appointmentsController.updateAppointment);
+// GET appointment by ID => "Doctor" or "Admin"
+router.get('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), appointmentsController.getAppointmentById);
 
-// DELETE appointment (protected)
-router.delete('/:id', authMiddleware, appointmentsController.deleteAppointment);
+// POST create => "Doctor" or "Admin"
+router.post('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), appointmentsController.createAppointment);
+
+// PUT update => "Doctor" or "Admin"
+router.put('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), appointmentsController.updateAppointment);
+
+// DELETE => let's say only "Admin" can do it
+router.delete('/:id', authMiddleware, roleMiddleware(['Admin']), appointmentsController.deleteAppointment);
 
 module.exports = router;

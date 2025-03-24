@@ -2,22 +2,26 @@
 const express = require('express');
 const router = express.Router();
 const urController = require('../controllers/userRolesController');
-// Import your authentication middleware
 const authMiddleware = require('../middleware/authMiddleware');
+const roleMiddleware = require('../middleware/roleMiddleware');
 
-// GET all (protected)
-router.get('/', authMiddleware, urController.getAllUserRoles);
+/**
+ * We'll assume only "Admin" can manage user-role relationships.
+ */
 
-// GET by composite key (protected)
-router.get('/:user_id/:role_id', authMiddleware, urController.getUserRole);
+// GET all => "Admin"
+router.get('/', authMiddleware, roleMiddleware(['Admin']), urController.getAllUserRoles);
 
-// POST create (protected)
-router.post('/', authMiddleware, urController.createUserRole);
+// GET by composite key => "Admin"
+router.get('/:user_id/:role_id', authMiddleware, roleMiddleware(['Admin']), urController.getUserRole);
 
-// PUT update (protected)
-router.put('/:user_id/:role_id', authMiddleware, urController.updateUserRole);
+// POST create => "Admin"
+router.post('/', authMiddleware, roleMiddleware(['Admin']), urController.createUserRole);
 
-// DELETE (protected)
-router.delete('/:user_id/:role_id', authMiddleware, urController.deleteUserRole);
+// PUT update => "Admin"
+router.put('/:user_id/:role_id', authMiddleware, roleMiddleware(['Admin']), urController.updateUserRole);
+
+// DELETE => "Admin"
+router.delete('/:user_id/:role_id', authMiddleware, roleMiddleware(['Admin']), urController.deleteUserRole);
 
 module.exports = router;

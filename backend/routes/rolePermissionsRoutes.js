@@ -2,22 +2,26 @@
 const express = require('express');
 const router = express.Router();
 const rpController = require('../controllers/rolePermissionsController');
-// Import your authentication middleware
 const authMiddleware = require('../middleware/authMiddleware');
+const roleMiddleware = require('../middleware/roleMiddleware');
 
-// GET all (protected)
-router.get('/', authMiddleware, rpController.getAllRolePermissions);
+/**
+ * We'll assume only "Admin" can manage role-permissions.
+ */
 
-// GET by composite key (protected)
-router.get('/:role_id/:permission_id', authMiddleware, rpController.getRolePermission);
+// GET all => "Admin"
+router.get('/', authMiddleware, roleMiddleware(['Admin']), rpController.getAllRolePermissions);
 
-// POST create (protected)
-router.post('/', authMiddleware, rpController.createRolePermission);
+// GET by composite key => "Admin"
+router.get('/:role_id/:permission_id', authMiddleware, roleMiddleware(['Admin']), rpController.getRolePermission);
 
-// PUT update (protected)
-router.put('/:role_id/:permission_id', authMiddleware, rpController.updateRolePermission);
+// POST create => "Admin"
+router.post('/', authMiddleware, roleMiddleware(['Admin']), rpController.createRolePermission);
 
-// DELETE (protected)
-router.delete('/:role_id/:permission_id', authMiddleware, rpController.deleteRolePermission);
+// PUT update => "Admin"
+router.put('/:role_id/:permission_id', authMiddleware, roleMiddleware(['Admin']), rpController.updateRolePermission);
+
+// DELETE => "Admin"
+router.delete('/:role_id/:permission_id', authMiddleware, roleMiddleware(['Admin']), rpController.deleteRolePermission);
 
 module.exports = router;

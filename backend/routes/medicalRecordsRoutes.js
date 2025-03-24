@@ -2,22 +2,29 @@
 const express = require('express');
 const router = express.Router();
 const medicalRecordsController = require('../controllers/medicalRecordsController');
-// Import your authentication middleware
+// Middlewares
 const authMiddleware = require('../middleware/authMiddleware');
+const roleMiddleware = require('../middleware/roleMiddleware');
 
-// GET all medical records (protected)
-router.get('/', authMiddleware, medicalRecordsController.getAllMedicalRecords);
+/**
+ * For demonstration:
+ * - "Doctor" or "Admin" can GET, POST, PUT medical records.
+ * - Only "Admin" can DELETE.
+ */
 
-// GET medical record by ID (protected)
-router.get('/:id', authMiddleware, medicalRecordsController.getMedicalRecordById);
+// GET all medical records => "Doctor" or "Admin"
+router.get('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.getAllMedicalRecords);
 
-// POST create medical record (protected)
-router.post('/', authMiddleware, medicalRecordsController.createMedicalRecord);
+// GET a medical record by ID => "Doctor" or "Admin"
+router.get('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.getMedicalRecordById);
 
-// PUT update medical record (protected)
-router.put('/:id', authMiddleware, medicalRecordsController.updateMedicalRecord);
+// POST create medical record => "Doctor" or "Admin"
+router.post('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.createMedicalRecord);
 
-// DELETE medical record (protected)
-router.delete('/:id', authMiddleware, medicalRecordsController.deleteMedicalRecord);
+// PUT update medical record => "Doctor" or "Admin"
+router.put('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.updateMedicalRecord);
+
+// DELETE medical record => "Admin" only
+router.delete('/:id', authMiddleware, roleMiddleware(['Admin']), medicalRecordsController.deleteMedicalRecord);
 
 module.exports = router;

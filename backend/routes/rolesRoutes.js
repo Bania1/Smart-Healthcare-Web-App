@@ -2,22 +2,26 @@
 const express = require('express');
 const router = express.Router();
 const rolesController = require('../controllers/rolesController');
-// Import your authentication middleware
 const authMiddleware = require('../middleware/authMiddleware');
+const roleMiddleware = require('../middleware/roleMiddleware');
 
-// GET all roles (protected)
-router.get('/', authMiddleware, rolesController.getAllRoles);
+/**
+ * We'll assume only "Admin" can manage roles.
+ */
 
-// GET role by ID (protected)
-router.get('/:id', authMiddleware, rolesController.getRoleById);
+// GET all roles => "Admin"
+router.get('/', authMiddleware, roleMiddleware(['Admin']), rolesController.getAllRoles);
 
-// POST create role (protected)
-router.post('/', authMiddleware, rolesController.createRole);
+// GET role by ID => "Admin"
+router.get('/:id', authMiddleware, roleMiddleware(['Admin']), rolesController.getRoleById);
 
-// PUT update role (protected)
-router.put('/:id', authMiddleware, rolesController.updateRole);
+// POST create role => "Admin"
+router.post('/', authMiddleware, roleMiddleware(['Admin']), rolesController.createRole);
 
-// DELETE role (protected)
-router.delete('/:id', authMiddleware, rolesController.deleteRole);
+// PUT update role => "Admin"
+router.put('/:id', authMiddleware, roleMiddleware(['Admin']), rolesController.updateRole);
+
+// DELETE role => "Admin"
+router.delete('/:id', authMiddleware, roleMiddleware(['Admin']), rolesController.deleteRole);
 
 module.exports = router;
