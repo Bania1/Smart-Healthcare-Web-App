@@ -1,16 +1,14 @@
-const express = require("express");
+// routes/authRoutes.js
+const express = require('express');
 const router = express.Router();
-const authController = require("../controllers/authController");
-const { authenticate } = require("../middleware/authMiddleware");
+const authController = require('../controllers/authController');
+const authMiddleware = require('../middleware/authMiddleware');
 
-// Register a new user
-router.post("/register", authController.register);
+// Register and login (públicas)
+router.post('/register', authController.register);
+router.post('/login', authController.login);
 
-// Login user and generate JWT
-router.post("/login", authController.login);
-
-// Get the profile of the authenticated user
-// Protected by `authenticate` middleware
-router.get("/profile", authenticate, authController.getProfile);
+// Profile (protegida)
+router.get('/profile', authMiddleware, authController.getProfile);
 
 module.exports = router;

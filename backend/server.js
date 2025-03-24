@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 
 // Import routers
+const authRoutes = require('./routes/authRoutes');
 const usersRoutes = require('./routes/usersRoutes');
 const appointmentsRoutes = require('./routes/appointmentsRoutes');
 const medicalRecordsRoutes = require('./routes/medicalRecordsRoutes');
@@ -18,6 +19,7 @@ const errorMiddleware = require('./middleware/errorMiddleware');
 app.use(express.json());
 
 // Mount routes
+app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/medical-records', medicalRecordsRoutes);
