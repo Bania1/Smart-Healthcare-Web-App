@@ -1,6 +1,9 @@
 const express = require('express');
 const app = express();
 
+// Import swagger
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger'); // your swagger.js file
 // Import routers
 const authRoutes = require('./routes/authRoutes');
 const usersRoutes = require('./routes/usersRoutes');
@@ -15,8 +18,11 @@ const usersDetailsRoutes = require('./routes/usersDetailsRoutes');
 // Import the error middleware
 const errorMiddleware = require('./middleware/errorMiddleware');
 
-// Parse JSON bodies (do this once)
+// Parse JSON bodies
 app.use(express.json());
+
+// Serve Swagger UI at /api-docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -40,4 +46,5 @@ app.use(errorMiddleware);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
+  console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
 });
