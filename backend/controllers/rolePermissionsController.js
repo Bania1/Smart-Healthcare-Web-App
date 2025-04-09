@@ -13,11 +13,10 @@ const CreateRolePermissionDto = require('../dtos/createRolePermission.dto');
 exports.getAllRolePermissions = async (req, res) => {
   try {
     const allRP = await prisma.role_permissions.findMany({
-      // If you want to include data from the "roles" or "permissions" tables, you can do:
-      // include: {
-      //   roles: true,
-      //   permissions: true
-      // }
+      /* include: {
+        roles: true,
+        permissions: true
+      } */
     });
     return res.status(200).json(allRP);
   } catch (error) {
@@ -41,7 +40,7 @@ exports.getRolePermission = async (req, res) => {
           permission_id: Number(permission_id)
         }
       },
-      // include: { roles: true, permissions: true } // if you want related data
+      include: { roles: true, permissions: true }
     });
 
     if (!rp) {

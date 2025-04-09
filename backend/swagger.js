@@ -15,7 +15,7 @@ const options = {
       }
     ]
   },
-  apis: ['./routes/*.js', './controllers/*.js'] // or wherever you keep your JSDoc comments
+  apis: ['./routes/*.js', './controllers/*.js'] 
 };
 
 const swaggerSpec = swaggerJsdoc(options);

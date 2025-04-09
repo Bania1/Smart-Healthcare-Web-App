@@ -3,7 +3,6 @@ const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// It's good practice to store your secret in an environment variable
 const JWT_SECRET = process.env.JWT_SECRET || 'MY_SUPER_SECURE_SECRET';
 
 /**

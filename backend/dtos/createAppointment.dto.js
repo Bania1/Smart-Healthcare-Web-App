@@ -15,7 +15,7 @@ class CreateAppointmentDto {
       if (!this.status) {
         throw new Error('Missing status field');
       }
-      // Optional: check if doctor_id and patient_id are provided, if needed
+      
     }
   }
   

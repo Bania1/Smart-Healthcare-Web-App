@@ -13,11 +13,10 @@ const CreateUserRoleDto = require('../dtos/createUserRole.dto');
 exports.getAllUserRoles = async (req, res) => {
   try {
     const allUR = await prisma.user_roles.findMany({
-      // If you want to include data from the "roles" or "users" tables, you can do:
-      // include: {
-      //   roles: true,
-      //   users: true
-      // }
+      /* include: {
+        roles: true,
+        users: true
+      } */
     });
     return res.status(200).json(allUR);
   } catch (error) {
@@ -41,7 +40,7 @@ exports.getUserRole = async (req, res) => {
           role_id: Number(role_id)
         }
       },
-      // include: { roles: true, users: true } // if you want to include related data
+      include: { roles: true, users: true } 
     });
 
     if (!ur) {

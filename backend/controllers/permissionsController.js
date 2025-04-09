@@ -29,10 +29,9 @@ exports.getPermissionById = async (req, res) => {
     const { id } = req.params;
     const permission = await prisma.permissions.findUnique({
       where: { permission_id: Number(id) },
-      // If you want to include "role_permissions" data, for example:
-      // include: {
-      //   role_permissions: true
-      // }
+      /* include: {
+        role_permissions: true
+      } */
     });
 
     if (!permission) {

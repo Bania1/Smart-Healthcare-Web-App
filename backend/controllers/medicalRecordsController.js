@@ -30,10 +30,10 @@ exports.getMedicalRecordById = async (req, res) => {
     const record = await prisma.medical_records.findUnique({
       where: { record_id: Number(id) },
       // If you want to include doctor/patient info:
-      // include: {
-      //   users_medical_records_doctor_idTousers: true,
-      //   users_medical_records_patient_idTousers: true
-      // }
+      /* include: {
+        users_medical_records_doctor_idTousers: true,
+        users_medical_records_patient_idTousers: true
+      } */
     });
 
     if (!record) {

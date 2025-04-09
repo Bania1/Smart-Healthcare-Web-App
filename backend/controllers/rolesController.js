@@ -29,7 +29,7 @@ exports.getRoleById = async (req, res) => {
     const { id } = req.params;
     const role = await prisma.roles.findUnique({
       where: { role_id: Number(id) },
-      // include: { role_permissions: true, user_roles: true } // if you want to include relations
+      // include: { role_permissions: true, user_roles: true }
     });
 
     if (!role) {

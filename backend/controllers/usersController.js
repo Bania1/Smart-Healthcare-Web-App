@@ -3,7 +3,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Import your CreateUserDto (make sure you have created it in dtos/createUser.dto.js)
+
 const CreateUserDto = require('../dtos/createUser.dto');
 
 /**

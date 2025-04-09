@@ -3,7 +3,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Import your DTO
 const CreateAppointmentDto = require('../dtos/createAppointment.dto');
 
 /**
@@ -30,11 +29,11 @@ exports.getAppointmentById = async (req, res) => {
     const { id } = req.params;
     const appointment = await prisma.appointments.findUnique({
       where: { appointment_id: Number(id) },
-      // If you want to include doctor/patient data, you can do:
-      // include: {
-      //   users_appointments_doctor_idTousers: true,
-      //   users_appointments_patient_idTousers: true
-      // }
+      
+      /* include: {
+        users_appointments_doctor_idTousers: true,
+        users_appointments_patient_idTousers: true
+      } */
     });
 
     if (!appointment) {

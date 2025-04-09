@@ -3,7 +3,7 @@ const app = express();
 
 // Import swagger
 const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./swagger'); // your swagger.js file
+const swaggerSpec = require('./swagger'); 
 // Import routers
 const authRoutes = require('./routes/authRoutes');
 const usersRoutes = require('./routes/usersRoutes');
@@ -35,7 +35,7 @@ app.use('/api/user-roles', userRolesRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/users-details', usersDetailsRoutes);
 
-// (Optional) Catch-all for unknown routes (404)
+//Catch-all for unknown routes (404)
 app.use((req, res, next) => {
   res.status(404).json({ error: 'Not Found' });
 });

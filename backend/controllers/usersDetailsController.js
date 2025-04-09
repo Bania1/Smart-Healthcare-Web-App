@@ -12,10 +12,11 @@ const CreateUserDetailsDto = require('../dtos/createUserDetails.dto');
  */
 exports.getAllUsersDetails = async (req, res) => {
   try {
-    const allDetails = await prisma.users_details.findMany({
-      // If you want to include data from the "users" table, you can do:
-      // include: { users: true }
-    });
+    const allDetails = await prisma.users_details.findMany(
+      {
+      //include: { users: true }
+      }
+    );
     return res.status(200).json(allDetails);
   } catch (error) {
     console.error('Error in getAllUsersDetails:', error);
@@ -32,7 +33,7 @@ exports.getUserDetailsById = async (req, res) => {
     const { user_id } = req.params;
     const details = await prisma.users_details.findUnique({
       where: { user_id: Number(user_id) },
-      // include: { users: true } // if you want to include "users" data
+      include: { users: true }
     });
 
     if (!details) {
