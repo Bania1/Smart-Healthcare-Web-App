@@ -3,6 +3,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Import the DTO
+const CreateRolePermissionDto = require('../dtos/createRolePermission.dto');
+
 /**
  * GET /api/role-permissions
  * List all role_permissions relationships
@@ -10,11 +13,10 @@ const prisma = new PrismaClient();
 exports.getAllRolePermissions = async (req, res) => {
   try {
     const allRP = await prisma.role_permissions.findMany({
-      // If you want to include data from the "roles" or "permissions" tables, you can do:
-      // include: {
-      //   roles: true,
-      //   permissions: true
-      // }
+      /* include: {
+        roles: true,
+        permissions: true
+      } */
     });
     return res.status(200).json(allRP);
   } catch (error) {
@@ -38,7 +40,7 @@ exports.getRolePermission = async (req, res) => {
           permission_id: Number(permission_id)
         }
       },
-      // include: { roles: true, permissions: true } // if you want related data
+      include: { roles: true, permissions: true }
     });
 
     if (!rp) {
@@ -54,37 +56,37 @@ exports.getRolePermission = async (req, res) => {
 
 /**
  * POST /api/role-permissions
- * Create a new role_permission relationship
+ * Create a new role_permission relationship using a DTO
  */
 exports.createRolePermission = async (req, res) => {
   try {
-    const { role_id, permission_id } = req.body;
+    // 1. Instantiate the DTO with request data
+    const dto = new CreateRolePermissionDto(req.body);
 
-    // Basic validations
-    if (!role_id || !permission_id) {
-      return res.status(400).json({ error: 'Missing required fields (role_id, permission_id)' });
-    }
+    // 2. Validate fields (throws error if invalid)
+    dto.validate();
 
-    // Create the relationship
+    // 3. Use dto fields to create the relationship
     const newRP = await prisma.role_permissions.create({
       data: {
-        role_id: Number(role_id),
-        permission_id: Number(permission_id)
+        role_id: Number(dto.role_id),
+        permission_id: Number(dto.permission_id)
       }
     });
 
     return res.status(201).json(newRP);
   } catch (error) {
     console.error('Error in createRolePermission:', error);
-    // If this relationship already exists (duplicate composite key), Prisma throws P2002
+    // If this relationship already exists (duplicate composite key), Prisma throws error code P2002
     if (error.code === 'P2002') {
       return res.status(409).json({ error: 'This role_id-permission_id relationship already exists' });
     }
-    // If it's a foreign key error (P2003), role_id or permission_id does not exist in their respective tables
+    // If it's a foreign key error (P2003), role_id or permission_id doesn't exist in their respective tables
     if (error.code === 'P2003') {
       return res.status(400).json({ error: 'Foreign key violation: role_id or permission_id do not exist' });
     }
-    return res.status(500).json({ error: error.message });
+    // If the error is from dto.validate() or anything else, respond accordingly
+    return res.status(400).json({ error: error.message });
   }
 };
 
@@ -112,7 +114,7 @@ exports.updateRolePermission = async (req, res) => {
     }
 
     // If we want to "move" the relationship to (new_role_id, new_permission_id),
-    // Prisma doesn't allow directly updating the composite PK. We delete and recreate instead.
+    // we delete the current one and create a new one.
     if (new_role_id || new_permission_id) {
       // Delete the current relationship
       await prisma.role_permissions.delete({

@@ -3,6 +3,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+
+const CreateUserDto = require('../dtos/createUser.dto');
+
 /**
  * GET /api/users
  * Retrieve all users
@@ -26,7 +29,7 @@ exports.getUserById = async (req, res) => {
     const { id } = req.params;
     const user = await prisma.users.findUnique({
       where: { user_id: Number(id) },
-      // include: { users_details: true } // Uncomment if you want to include related details
+      
     });
 
     if (!user) {
@@ -42,26 +45,22 @@ exports.getUserById = async (req, res) => {
 
 /**
  * POST /api/users
- * Create a new user
+ * Create a new user using a DTO
  */
 exports.createUser = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    // 1. Instantiate the DTO with request data
+    const dto = new CreateUserDto(req.body);
 
-    // Basic validation
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Missing required fields (email, password)' });
-    }
+    // 2. Validate the data (throws an error if invalid)
+    dto.validate();
 
-    // Example: encrypt password with bcrypt (optional)
-    // const salt = await bcrypt.genSalt(10);
-    // const hashedPassword = await bcrypt.hash(password, salt);
-
+    // 3. Use dto fields (dto.email, dto.password, etc.) to create the user
     const newUser = await prisma.users.create({
       data: {
-        name,
-        email,
-        password, // or hashedPassword if encrypted
+        name: dto.name,
+        email: dto.email,
+        password: dto.password,
       },
     });
 
@@ -74,9 +73,9 @@ exports.createUser = async (req, res) => {
       // Unique constraint (e.g., duplicate email)
       return res.status(409).json({ error: 'Email already in use' });
     }
-    // e.g., error.code === 'P2003' would be a foreign key constraint
 
-    return res.status(500).json({ error: 'Failed to create user' });
+    // If the error is from dto.validate() or anything else, return 400
+    return res.status(400).json({ error: error.message });
   }
 };
 
@@ -96,12 +95,6 @@ exports.updateUser = async (req, res) => {
     if (!existingUser) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    // If you want to encrypt password here, do so
-    // if (password) {
-    //   const salt = await bcrypt.genSalt(10);
-    //   req.body.password = await bcrypt.hash(password, salt);
-    // }
 
     try {
       const updatedUser = await prisma.users.update({
@@ -141,7 +134,10 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    await prisma.users.delete({ where: { user_id: Number(id) } });
+    await prisma.users.delete({
+      where: { user_id: Number(id) },
+    });
+
     return res.status(204).send(); // No Content
   } catch (error) {
     console.error('Error in deleteUser:', error);

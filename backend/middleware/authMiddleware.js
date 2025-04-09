@@ -1,24 +1,31 @@
-const jwt = require("jsonwebtoken");
-const { User } = require("../models");
-require("dotenv").config();
+// middleware/authMiddleware.js
+const jwt = require('jsonwebtoken');
 
-/**
- * Middleware to authenticate JWT token
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- */
-const authenticate = async (req, res, next) => {
-	/**
-	 * TODO: Implementați middleware-ul de autentificare JWT.
-	 * Acest middleware ar trebui să:
-	 * 1. Extrage token-ul JWT din antetul cererii (Authorization).
-	 * 2. Verifice dacă token-ul există și are prefixul corect ("Bearer").
-	 * 3. Decodeze și verifice token-ul folosind cheia secretă JWT.
-	 * 4. Caută utilizatorul în baza de date pe baza ID-ului decodat din token.
-	 * 5. Atașeze utilizatorul găsit la obiectul request pentru a putea fi utilizat în rutele protejate.
-	 * 6. Returneze erori corespunzătoare în cazul unui token invalid, expirat sau a unui utilizator inexistent.
-	 */
+const JWT_SECRET = process.env.JWT_SECRET || 'MY_SUPER_SECURE_SECRET';
+
+const authMiddleware = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const [bearer, token] = authHeader.split(' ');
+    if (bearer !== 'Bearer' || !token) {
+      return res.status(401).json({ error: 'Invalid token format' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Attach the user info (claims) to req.user
+    req.user = decoded;
+
+    next();
+  } catch (error) {
+    console.error('Error in authMiddleware:', error);
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
 };
 
-module.exports = { authenticate };
+module.exports = authMiddleware;

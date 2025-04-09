@@ -13,6 +13,9 @@ RUN npm install
 # Copy all backend files
 COPY . .
 
+#GENERATE PRISMA CLIENTE
+RUN npx prisma generate
+
 # Expose the application port
 EXPOSE 3000
 

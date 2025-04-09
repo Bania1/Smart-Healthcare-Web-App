@@ -3,6 +3,8 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const CreateAppointmentDto = require('../dtos/createAppointment.dto');
+
 /**
  * GET /api/appointments
  * Retrieve all appointments
@@ -27,11 +29,11 @@ exports.getAppointmentById = async (req, res) => {
     const { id } = req.params;
     const appointment = await prisma.appointments.findUnique({
       where: { appointment_id: Number(id) },
-      // If you want to include doctor/patient data, you can do:
-      // include: {
-      //   users_appointments_doctor_idTousers: true,
-      //   users_appointments_patient_idTousers: true
-      // }
+      
+      /* include: {
+        users_appointments_doctor_idTousers: true,
+        users_appointments_patient_idTousers: true
+      } */
     });
 
     if (!appointment) {
@@ -47,24 +49,27 @@ exports.getAppointmentById = async (req, res) => {
 
 /**
  * POST /api/appointments
- * Create a new appointment
+ * Create a new appointment using a DTO
  */
 exports.createAppointment = async (req, res) => {
   try {
-    const { date_time, status, doctor_id, patient_id } = req.body;
+    // 1. Instantiate the DTO with the incoming request data
+    const dto = new CreateAppointmentDto(req.body);
 
-    // Basic validations
-    if (!date_time || !status) {
-      return res.status(400).json({ error: 'Missing required fields (date_time, status)' });
-    }
+    // 2. Validate the fields (throws an error if invalid)
+    dto.validate();
 
     try {
+      // 3. Convert date_time to Date if needed
+      const parsedDate = dto.date_time ? new Date(dto.date_time) : null;
+
+      // 4. Create the appointment using the DTO fields
       const newAppointment = await prisma.appointments.create({
         data: {
-          date_time: new Date(date_time), // Ensure proper parsing
-          status,
-          doctor_id,
-          patient_id
+          date_time: parsedDate,
+          status: dto.status,
+          doctor_id: dto.doctor_id,
+          patient_id: dto.patient_id
         },
       });
 
@@ -72,14 +77,13 @@ exports.createAppointment = async (req, res) => {
     } catch (createError) {
       console.error('Error in createAppointment (Prisma):', createError);
 
-      // If there's a foreign key violation (P2003), e.g., doctor_id or patient_id not existing
+      // If there's a foreign key violation (doctor_id/patient_id not existing)
       if (createError.code === 'P2003') {
         return res.status(400).json({
           error: 'Foreign key violation: doctor_id or patient_id do not exist'
         });
       }
-      // If there's a unique constraint violation (P2002), if you had constraints
-      // e.g., same date/time with same doctor not allowed
+      // If there's a unique constraint violation (P2002) for some reason
       if (createError.code === 'P2002') {
         return res.status(409).json({
           error: 'An appointment with these constraints already exists'
@@ -89,7 +93,8 @@ exports.createAppointment = async (req, res) => {
     }
   } catch (error) {
     console.error('Error in createAppointment (general):', error);
-    return res.status(500).json({ error: 'Internal error while creating the appointment' });
+    // If the DTO validation fails or anything else, respond with 400
+    return res.status(400).json({ error: error.message });
   }
 };
 
