@@ -1,3 +1,5 @@
+// backend/src/controllers/authController.js
+
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs');
@@ -6,7 +8,8 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'MY_SUPER_SECURE_SECRET';
 
 /**
- * Register a new user (Patient or Doctor), plus details and role in one step
+ * Register a new user
+ * Expects: { name, dni, email, password, role, date_of_birth, contact_info, specialty, availability }
  */
 exports.register = async (req, res) => {
   try {
@@ -16,14 +19,14 @@ exports.register = async (req, res) => {
       email,
       password,
       role,            // 'patient' o 'doctor'
-      date_of_birth,   // 'YYYY-MM-DD' o null
+      date_of_birth,   // YYYY-MM-DD o null
       contact_info,    // teléfono o null
       specialty,       // solo para doctor
       availability     // solo para doctor
     } = req.body;
 
     // 1) Validación básica
-    if (!name || !dni || !password || !role) {
+    if (!dni || !password || !name) {
       return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
 
@@ -43,31 +46,27 @@ exports.register = async (req, res) => {
       data: { name, dni, email, password: hashed }
     });
 
-    // 5) Crear detalles
+    // 5) Crear detalles (siempre)
     await prisma.users_details.create({
       data: {
         user_id: newUser.user_id,
         date_of_birth: date_of_birth
           ? new Date(date_of_birth)
           : null,
-        contact_info: contact_info  || null,
-        specialty: specialty        || null,
-        availability: availability  || null
+        contact_info: contact_info || null,
+        specialty: specialty || null,
+        availability: availability || null
       }
     });
 
-    // 6) Buscar ID del rol solicitado (case‐insensitive)
-    const wantedRole = role === 'doctor' ? 'Doctor' : 'Patient';
-    const roleRecord = await prisma.roles.findFirst({
+    // 6) Buscar ID del rol solicitado
+    const roleRecord = await prisma.roles.findUnique({
       where: {
-        role_name: {
-          equals: wantedRole,
-          mode: 'insensitive'
-        }
+        role_name: role === 'doctor' ? 'Doctor' : 'Patient'
       }
     });
     if (!roleRecord) {
-      return res.status(500).json({ error: `Rol "${wantedRole}" no encontrado` });
+      return res.status(500).json({ error: `Rol ${role} no encontrado` });
     }
 
     // 7) Asignar rol
@@ -78,7 +77,7 @@ exports.register = async (req, res) => {
       }
     });
 
-    // 8) Responder al cliente
+    // 8) Devolver respuesta (sin token aún)
     return res.status(201).json({
       message: 'Usuario registrado con éxito',
       user: {
@@ -91,44 +90,57 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error en register:', error.stack || error);
+    console.error('Error en register:', error);
     return res.status(500).json({ error: 'Error interno en el registro' });
   }
 };
 
 /**
  * Login a user
+ * Expects: { dni, password }
+ * Returns: { token, user }
  */
 exports.login = async (req, res) => {
   try {
     const { dni, password } = req.body;
+
+    // 1. Validación básica
     if (!dni || !password) {
       return res.status(400).json({ error: 'Missing DNI or password' });
     }
 
-    const user = await prisma.users.findUnique({ where: { dni } });
+    // 2. Buscar usuario por DNI
+    const user = await prisma.users.findUnique({
+      where: { dni }
+    });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // 3. Comparar contraseña
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // 4. Obtener roles del usuario
     const userRoles = await prisma.user_roles.findMany({
       where: { user_id: user.user_id },
-      include: { roles: true }
-      include: { roles: true }
+      include: { roles: true }  // <-- aquí ya forma parte del objeto
     });
     const roleNames = userRoles.map(ur => ur.roles.role_name);
 
-    const token = jwt.sign(
-      { userId: user.user_id, dni: user.dni, roles: roleNames },
-      JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    // 5. Payload del JWT
+    const payload = {
+      userId: user.user_id,
+      dni: user.dni,
+      roles: roleNames
+    };
 
+    // 6. Firmar token
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+
+    // 7. Responder con token y datos de usuario
     return res.status(200).json({
       token,
       user: {
@@ -140,17 +152,17 @@ exports.login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error in login:', error.stack || error);
+    console.error('Error in login:', error);
     return res.status(500).json({ error: 'Failed to login' });
   }
 };
 
 /**
- * Get the current user's profile
+ * Get the profile of the current user
+ * Requires authMiddleware to have puesto req.user
  */
 exports.getProfile = async (req, res) => {
   try {
-    const userId = Number(req.user?.userId);
     const userId = Number(req.user?.userId);
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -162,16 +174,17 @@ exports.getProfile = async (req, res) => {
         user_id: true,
         name: true,
         dni: true,
-        dni: true,
         email: true,
-        user_roles: { include: { roles: true } }
+        user_roles: {
+          include: { roles: true }
+        }
       }
     });
+
     if (!userProfile) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const roleNames = userProfile.user_roles.map(ur => ur.roles.role_name);
     const roleNames = userProfile.user_roles.map(ur => ur.roles.role_name);
 
     return res.status(200).json({
@@ -182,8 +195,7 @@ exports.getProfile = async (req, res) => {
       roles: roleNames
     });
   } catch (error) {
-    console.error('❌ Error in getProfile:', error.stack || error);
+    console.error('Error in getProfile:', error);
     return res.status(500).json({ error: 'Failed to retrieve profile' });
   }
 };
-
