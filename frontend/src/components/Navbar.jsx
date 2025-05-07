@@ -1,19 +1,25 @@
 // src/components/Navbar.jsx
 import React, { useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
+  if (!user) return null;  // ocultar si no hay sesión
 
-  // Si no hay usuario, no mostramos nada
-  if (!user) return null;
+  const links = [
+    { to: '/home', label: 'Inicio' },
+    { to: '/users', label: 'Usuarios' },
+    { to: '/appointments', label: 'Citas' },
+    { to: '/medical-records', label: 'Historiales' }
+  ];
 
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-light">
       <div className="container-fluid">
-        {/* Marca siempre al hub authenticated */}
-        <Link className="navbar-brand" to="/home">SmartHC</Link>
+        <NavLink className="navbar-brand" to="/home">
+          SmartHC
+        </NavLink>
         <button
           className="navbar-toggler"
           type="button"
@@ -28,34 +34,27 @@ export default function Navbar() {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0">
-
-            {/* Inicio al hub, no a la portada */}
-            <li className="nav-item">
-              <Link className="nav-link" to="/home">Inicio</Link>
-            </li>
-
-            <li className="nav-item">
-              <Link className="nav-link" to="/users">Usuarios</Link>
-            </li>
-
-            <li className="nav-item">
-              <Link className="nav-link" to="/appointments">Citas</Link>
-            </li>
-
-            <li className="nav-item">
-              <Link className="nav-link" to="/medical-records">Historiales</Link>
-            </li>
-
-            <li className="nav-item">
-              <button
-                className="btn btn-link nav-link"
-                onClick={logout}
-              >
-                Salir
-              </button>
-            </li>
-
+            {links.map(({ to, label }) => (
+              <li className="nav-item" key={to}>
+                <NavLink
+                  to={to}
+                  end
+                  className={({ isActive }) =>
+                    `nav-link${isActive ? ' active' : ''}`
+                  }
+                >
+                  {label}
+                </NavLink>
+              </li>
+            ))}
           </ul>
+
+          <button
+            className="btn btn-outline-secondary"
+            onClick={logout}
+          >
+            Salir
+          </button>
         </div>
       </div>
     </nav>
