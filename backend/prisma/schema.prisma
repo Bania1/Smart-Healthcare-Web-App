@@ -64,6 +64,7 @@ model users {
   user_id                                           Int               @id @default(autoincrement())
   name                                              String?           @db.VarChar(255)
   email                                             String            @unique @db.VarChar(255)
+  dni                                               String            @unique @db.VarChar(20) 
   password                                          String            @db.VarChar(255)
   appointments_appointments_doctor_idTousers        appointments[]    @relation("appointments_doctor_idTousers")
   appointments_appointments_patient_idTousers       appointments[]    @relation("appointments_patient_idTousers")

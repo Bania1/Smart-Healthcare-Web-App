@@ -7,33 +7,41 @@ const JWT_SECRET = process.env.JWT_SECRET || 'MY_SUPER_SECURE_SECRET';
 
 /**
  * Register a new user
- * Expects: { email, password, name }
+ * Expects: { name, dni, email, password }
  */
 exports.register = async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { name, dni, email, password } = req.body;
 
     // 1. Basic validation
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Missing email or password' });
+    if (!dni || !password) {
+      return res.status(400).json({ error: 'Missing DNI or password' });
     }
 
-    // 2. Check if the email is already in use
-    const existingUser = await prisma.users.findUnique({ where: { email } });
+    // 2. Check if the DNI or email is already in use
+    const existingUser = await prisma.users.findFirst({
+      where: {
+        OR: [
+          { dni },
+          { email }
+        ]
+      }
+    });
     if (existingUser) {
-      return res.status(409).json({ error: 'Email already in use' });
+      return res.status(409).json({ error: 'DNI or email already in use' });
     }
 
     // 3. Encrypt the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 4. Create the user in the 'users' table
+    // 4. Create the user in the 'users' table, including dni
     const newUser = await prisma.users.create({
       data: {
+        name,
+        dni,
         email,
-        password: hashedPassword,
-        name
+        password: hashedPassword
       }
     });
 
@@ -42,11 +50,7 @@ exports.register = async (req, res) => {
       where: { role_name: 'Patient' }
     });
 
-    if (!defaultRole) {
-      console.error('Role "Patient" not found in the "roles" table.');
-      // You could return an error response or just ignore this part
-    } else {
-      // Insert the relationship into user_roles
+    if (defaultRole) {
       await prisma.user_roles.create({
         data: {
           user_id: newUser.user_id,
@@ -58,8 +62,12 @@ exports.register = async (req, res) => {
     // 6. Return a success response
     return res.status(201).json({
       message: 'User registered successfully',
-      userId: newUser.user_id,
-      email: newUser.email
+      user: {
+        user_id: newUser.user_id,
+        name: newUser.name,
+        dni: newUser.dni,
+        email: newUser.email
+      }
     });
   } catch (error) {
     console.error('Error in register:', error);
@@ -69,21 +77,21 @@ exports.register = async (req, res) => {
 
 /**
  * Login a user
- * Expects: { email, password }
- * Returns: { token }
+ * Expects: { dni, password }
+ * Returns: { token, user }
  */
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { dni, password } = req.body;
 
     // 1. Basic validation
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Missing email or password' });
+    if (!dni || !password) {
+      return res.status(400).json({ error: 'Missing DNI or password' });
     }
 
-    // 2. Find user by email
+    // 2. Find user by DNI
     const user = await prisma.users.findUnique({
-      where: { email }
+      where: { dni }
     });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -95,27 +103,34 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 4. Fetch the user's roles from user_roles (with included roles table)
+    // 4. Fetch the user's roles
     const userRoles = await prisma.user_roles.findMany({
       where: { user_id: user.user_id },
-      include: { roles: true } // to access roles.role_name
+      include: { roles: true }
     });
+    const roleNames = userRoles.map(ur => ur.roles.role_name);
 
-    // Extract role names, e.g. ["Patient", "Doctor", "Admin"]
-    const roleNames = userRoles.map((ur) => ur.roles.role_name);
-
-    // 5. Create JWT payload, including roles
+    // 5. Create JWT payload
     const payload = {
       userId: user.user_id,
-      email: user.email,
+      dni: user.dni,
       roles: roleNames
     };
 
     // 6. Sign the token
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 
-    // 7. Return the token
-    return res.status(200).json({ token });
+    // 7. Return the token and user info
+    return res.status(200).json({
+      token,
+      user: {
+        user_id: user.user_id,
+        name: user.name,
+        dni: user.dni,
+        email: user.email,
+        roles: roleNames
+      }
+    });
   } catch (error) {
     console.error('Error in login:', error);
     return res.status(500).json({ error: 'Failed to login' });
@@ -123,28 +138,25 @@ exports.login = async (req, res) => {
 };
 
 /**
- * (Optional) Get the profile of the current user
- * This requires an authMiddleware to have set req.user
+ * Get the profile of the current user
+ * Requires an authMiddleware that sets req.user
  */
 exports.getProfile = async (req, res) => {
   try {
-    const userId = Number(req.user?.userId); 
+    const userId = Number(req.user?.userId);
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Fetch user plus their roles in a single query
     const userProfile = await prisma.users.findUnique({
       where: { user_id: userId },
       select: {
         user_id: true,
         name: true,
+        dni: true,
         email: true,
-        // Include user_roles and, within that, include the roles table
         user_roles: {
-          include: {
-            roles: true
-          }
+          include: { roles: true }
         }
       }
     });
@@ -153,14 +165,12 @@ exports.getProfile = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // user_roles is an array; each entry has .roles with a .role_name
-    // Map them to get an array of role names (e.g. ["Doctor", "Admin"])
-    const roleNames = userProfile.user_roles.map((ur) => ur.roles.role_name);
+    const roleNames = userProfile.user_roles.map(ur => ur.roles.role_name);
 
-    // Return user info + roles array
     return res.status(200).json({
       user_id: userProfile.user_id,
       name: userProfile.name,
+      dni: userProfile.dni,
       email: userProfile.email,
       roles: roleNames
     });
