@@ -1,0 +1,45 @@
+# .github/workflows/docker-compose.yml
+name: CI - Docker Compose Backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docker-compose-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run Docker Compose
+        run: docker-compose -f docker-compose.yml up -d --build
+
+      - name: Wait for backend to be ready
+        run: |
+          echo "Waiting for backend..."
+          for i in {1..10}; do
+            if curl -s http://localhost:3001/api-docs > /dev/null; then
+              echo "Backend is up!"
+              exit 0
+            fi
+            echo "Waiting..."
+            sleep 5
+          done
+          echo "Backend failed to start"
+          docker-compose logs
+          exit 1
+
+      # Optional: later, add tests using Newman, curl, or your own script
+      # - name: Run Postman tests
+      #   run: newman run postman_collection.json
+
+      - name: Tear down Docker Compose
+        if: always()
+        run: docker-compose -f docker-compose.yml down
