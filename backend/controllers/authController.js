@@ -119,6 +119,7 @@ exports.login = async (req, res) => {
     const userRoles = await prisma.user_roles.findMany({
       where: { user_id: user.user_id },
       include: { roles: true }
+      include: { roles: true }
     });
     const roleNames = userRoles.map(ur => ur.roles.role_name);
 
@@ -150,6 +151,7 @@ exports.login = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const userId = Number(req.user?.userId);
+    const userId = Number(req.user?.userId);
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -160,6 +162,7 @@ exports.getProfile = async (req, res) => {
         user_id: true,
         name: true,
         dni: true,
+        dni: true,
         email: true,
         user_roles: { include: { roles: true } }
       }
@@ -168,6 +171,7 @@ exports.getProfile = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const roleNames = userProfile.user_roles.map(ur => ur.roles.role_name);
     const roleNames = userProfile.user_roles.map(ur => ur.roles.role_name);
 
     return res.status(200).json({
@@ -182,3 +186,4 @@ exports.getProfile = async (req, res) => {
     return res.status(500).json({ error: 'Failed to retrieve profile' });
   }
 };
+
