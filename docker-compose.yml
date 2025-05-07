@@ -22,7 +22,7 @@ services:
       - db
     command: node index.js
     ports:
-      - "3001:3000"
+      - "3001:3001"
     environment:
       - DATABASE_URL=postgresql://smart_healthcare:angelSuperSecret@db:5432/smart_healthcare_db
     volumes:
