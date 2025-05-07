@@ -1,3 +1,5 @@
+// backend/src/controllers/authController.js
+
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs');
@@ -7,71 +9,89 @@ const JWT_SECRET = process.env.JWT_SECRET || 'MY_SUPER_SECURE_SECRET';
 
 /**
  * Register a new user
- * Expects: { name, dni, email, password }
+ * Expects: { name, dni, email, password, role, date_of_birth, contact_info, specialty, availability }
  */
 exports.register = async (req, res) => {
   try {
-    const { name, dni, email, password } = req.body;
+    const {
+      name,
+      dni,
+      email,
+      password,
+      role,            // 'patient' o 'doctor'
+      date_of_birth,   // YYYY-MM-DD o null
+      contact_info,    // teléfono o null
+      specialty,       // solo para doctor
+      availability     // solo para doctor
+    } = req.body;
 
-    // 1. Basic validation
-    if (!dni || !password) {
-      return res.status(400).json({ error: 'Missing DNI or password' });
+    // 1) Validación básica
+    if (!dni || !password || !name) {
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
 
-    // 2. Check if the DNI or email is already in use
-    const existingUser = await prisma.users.findFirst({
-      where: {
-        OR: [
-          { dni },
-          { email }
-        ]
-      }
+    // 2) Comprobar duplicados
+    const exists = await prisma.users.findFirst({
+      where: { OR: [{ dni }, { email }] }
     });
-    if (existingUser) {
-      return res.status(409).json({ error: 'DNI or email already in use' });
+    if (exists) {
+      return res.status(409).json({ error: 'DNI o email ya registrado' });
     }
 
-    // 3. Encrypt the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // 3) Hashear contraseña
+    const hashed = await bcrypt.hash(password, 10);
 
-    // 4. Create the user in the 'users' table, including dni
+    // 4) Crear usuario
     const newUser = await prisma.users.create({
+      data: { name, dni, email, password: hashed }
+    });
+
+    // 5) Crear detalles (siempre)
+    await prisma.users_details.create({
       data: {
-        name,
-        dni,
-        email,
-        password: hashedPassword
+        user_id: newUser.user_id,
+        date_of_birth: date_of_birth
+          ? new Date(date_of_birth)
+          : null,
+        contact_info: contact_info || null,
+        specialty: specialty || null,
+        availability: availability || null
       }
     });
 
-    // 5. Assign the 'Patient' role by default to the new user
-    const defaultRole = await prisma.roles.findUnique({
-      where: { role_name: 'Patient' }
+    // 6) Buscar ID del rol solicitado
+    const roleRecord = await prisma.roles.findUnique({
+      where: {
+        role_name: role === 'doctor' ? 'Doctor' : 'Patient'
+      }
     });
-
-    if (defaultRole) {
-      await prisma.user_roles.create({
-        data: {
-          user_id: newUser.user_id,
-          role_id: defaultRole.role_id
-        }
-      });
+    if (!roleRecord) {
+      return res.status(500).json({ error: `Rol ${role} no encontrado` });
     }
 
-    // 6. Return a success response
+    // 7) Asignar rol
+    await prisma.user_roles.create({
+      data: {
+        user_id: newUser.user_id,
+        role_id: roleRecord.role_id
+      }
+    });
+
+    // 8) Devolver respuesta (sin token aún)
     return res.status(201).json({
-      message: 'User registered successfully',
+      message: 'Usuario registrado con éxito',
       user: {
         user_id: newUser.user_id,
         name: newUser.name,
         dni: newUser.dni,
-        email: newUser.email
+        email: newUser.email,
+        role: roleRecord.role_name
       }
     });
+
   } catch (error) {
-    console.error('Error in register:', error);
-    return res.status(500).json({ error: 'Failed to register user' });
+    console.error('Error en register:', error);
+    return res.status(500).json({ error: 'Error interno en el registro' });
   }
 };
 
@@ -84,12 +104,12 @@ exports.login = async (req, res) => {
   try {
     const { dni, password } = req.body;
 
-    // 1. Basic validation
+    // 1. Validación básica
     if (!dni || !password) {
       return res.status(400).json({ error: 'Missing DNI or password' });
     }
 
-    // 2. Find user by DNI
+    // 2. Buscar usuario por DNI
     const user = await prisma.users.findUnique({
       where: { dni }
     });
@@ -97,30 +117,30 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 3. Compare password
+    // 3. Comparar contraseña
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 4. Fetch the user's roles
+    // 4. Obtener roles del usuario
     const userRoles = await prisma.user_roles.findMany({
       where: { user_id: user.user_id },
-      include: { roles: true }
+      include: { roles: true }  // <-- aquí ya forma parte del objeto
     });
     const roleNames = userRoles.map(ur => ur.roles.role_name);
 
-    // 5. Create JWT payload
+    // 5. Payload del JWT
     const payload = {
       userId: user.user_id,
       dni: user.dni,
       roles: roleNames
     };
 
-    // 6. Sign the token
+    // 6. Firmar token
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 
-    // 7. Return the token and user info
+    // 7. Responder con token y datos de usuario
     return res.status(200).json({
       token,
       user: {
@@ -139,7 +159,7 @@ exports.login = async (req, res) => {
 
 /**
  * Get the profile of the current user
- * Requires an authMiddleware that sets req.user
+ * Requires authMiddleware to have puesto req.user
  */
 exports.getProfile = async (req, res) => {
   try {

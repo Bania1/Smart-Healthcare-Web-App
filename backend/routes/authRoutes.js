@@ -1,6 +1,8 @@
+// backend/src/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
-const authController = require('../controllers/authController');
+// Ajusta este require al nombre real de tu fichero:
+const authController = require('../controllers/authController'); 
 const authMiddleware = require('../middleware/authMiddleware');
 
 /**
@@ -16,22 +18,18 @@ const authMiddleware = require('../middleware/authMiddleware');
  *   schemas:
  *     RegisterUser:
  *       type: object
+ *       required:
+ *         - name
+ *         - dni
+ *         - password
+ *         - role
  *       properties:
- *         email:
- *           type: string
- *           format: email
- *           example: user@example.com
- *         password:
- *           type: string
- *           format: password
- *           example: secret123
  *         name:
  *           type: string
  *           example: John Doe
- *
- *     LoginUser:
- *       type: object
- *       properties:
+ *         dni:
+ *           type: string
+ *           example: 12345678A
  *         email:
  *           type: string
  *           format: email
@@ -40,7 +38,36 @@ const authMiddleware = require('../middleware/authMiddleware');
  *           type: string
  *           format: password
  *           example: secret123
- *
+ *         role:
+ *           type: string
+ *           enum: [patient, doctor]
+ *           example: doctor
+ *         date_of_birth:
+ *           type: string
+ *           format: date
+ *           example: 1980-05-15
+ *         contact_info:
+ *           type: string
+ *           example: "+34 600 123 456"
+ *         specialty:
+ *           type: string
+ *           example: Cardiología
+ *         availability:
+ *           type: string
+ *           example: "Lunes a Viernes 9:00-14:00"
+ *     LoginUser:
+ *       type: object
+ *       required:
+ *         - dni
+ *         - password
+ *       properties:
+ *         dni:
+ *           type: string
+ *           example: 12345678A
+ *         password:
+ *           type: string
+ *           format: password
+ *           example: secret123
  *     UserProfile:
  *       type: object
  *       properties:
@@ -50,6 +77,9 @@ const authMiddleware = require('../middleware/authMiddleware');
  *         name:
  *           type: string
  *           example: John Doe
+ *         dni:
+ *           type: string
+ *           example: 12345678A
  *         email:
  *           type: string
  *           format: email
@@ -60,28 +90,28 @@ const authMiddleware = require('../middleware/authMiddleware');
  * @swagger
  * /api/auth/register:
  *   post:
- *     summary: Register a new user
+ *     summary: Register a new user (Patient or Doctor)
  *     tags: [Auth]
  *     requestBody:
- *       description: New user data
+ *       description: New user data, including details and role
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/RegisterUser'
- *           example:
- *             email: "newuser@example.com"
- *             password: "secret123"
- *             name: "New User"
  *     responses:
  *       201:
  *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserProfile'
  *       400:
  *         description: Missing required fields or invalid input
  *       409:
- *         description: Email already in use
+ *         description: DNI or email already in use
  *       500:
- *         description: Failed to register user
+ *         description: Internal server error
  */
 
 /**
@@ -97,12 +127,9 @@ const authMiddleware = require('../middleware/authMiddleware');
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/LoginUser'
- *           example:
- *             email: "user@example.com"
- *             password: "secret123"
  *     responses:
  *       200:
- *         description: Returns a JWT token
+ *         description: Returns a JWT token and user profile
  *         content:
  *           application/json:
  *             schema:
@@ -110,11 +137,13 @@ const authMiddleware = require('../middleware/authMiddleware');
  *               properties:
  *                 token:
  *                   type: string
- *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                 user:
+ *                   $ref: '#/components/schemas/UserProfile'
  *       401:
  *         description: Invalid credentials
  *       500:
- *         description: Failed to login
+ *         description: Internal server error
  */
 
 /**
@@ -137,14 +166,14 @@ const authMiddleware = require('../middleware/authMiddleware');
  *       404:
  *         description: User not found
  *       500:
- *         description: Failed to retrieve profile
+ *         description: Internal server error
  */
 
-// Register and login (public endpoints)
+// Public endpoints
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 
-// Profile (protected endpoint)
+// Protected endpoint
 router.get('/profile', authMiddleware, authController.getProfile);
 
 module.exports = router;

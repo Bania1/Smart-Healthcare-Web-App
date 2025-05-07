@@ -1,10 +1,10 @@
-/* src/pages/RegisterPage.jsx */
-import React, { useState, useContext } from 'react';
+// src/pages/RegisterPage.jsx
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
-import { AuthContext } from '../auth/AuthContext';
 
 export default function RegisterPage() {
-  const { login } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -22,131 +22,192 @@ export default function RegisterPage() {
 
   const handleChange = e => {
     const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async e => {
     e.preventDefault();
+    setError(null);
     if (form.password !== form.confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
     }
     try {
-      // Registro de usuario
-      const { data: registerData } = await api.post('/api/auth/register', {
+      // Llamada única al backend que ya crea users, details y roles
+      await api.post('/api/auth/register', {
         name: `${form.firstName} ${form.lastName}`,
         dni: form.dni,
         email: form.email,
-        password: form.password
-      });
-      const userId = registerData.user.user_id;
-
-      // Crear detalles del usuario
-      const detailsPayload = {
-        user_id: userId,
+        password: form.password,
+        role: form.role,
         date_of_birth: form.dateOfBirth || null,
-        contact_info: form.phone || null
-      };
-      if (form.role === 'doctor') {
-        detailsPayload.specialty = form.specialty || null;
-        detailsPayload.availability = form.availability || null;
-      }
-      await api.post('/api/users-details', detailsPayload);
-
-      // Asignar rol de médico si corresponde
-      if (form.role === 'doctor') {
-        await api.post('/api/user-roles', {
-          user_id: userId,
-          role_id: 2
-        });
-      }
-
-      // Login automático
-      await login({ dni: form.dni, password: form.password });
+        contact_info: form.phone || null,
+        specialty: form.role === 'doctor' ? form.specialty : undefined,
+        availability: form.role === 'doctor' ? form.availability : undefined
+      });
+      // Redirige al login
+      navigate('/login', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Error en el registro');
+      setError(err.response?.data?.error || 'Error en el registro');
     }
   };
 
   return (
-    <div className="container mt-5" style={{ maxWidth: 500 }}>
-      <h2>Registro de Usuario</h2>
+    <div className="container mt-5" style={{ maxWidth: 540 }}>
+      <h2 className="mb-4">Registro de Usuario</h2>
       {error && <div className="alert alert-danger">{error}</div>}
+
       <form onSubmit={handleSubmit}>
         {/* Tipo de usuario */}
         <div className="mb-3">
           <label className="form-label">Tipo de usuario</label>
-          <select name="role" className="form-select" value={form.role} onChange={handleChange}>
+          <select
+            className="form-select"
+            name="role"
+            value={form.role}
+            onChange={handleChange}
+          >
             <option value="patient">Paciente</option>
             <option value="doctor">Médico</option>
           </select>
         </div>
 
-        {/* Nombre y Apellidos */}
+        {/* Nombre y apellidos */}
         <div className="row">
           <div className="col-md-6 mb-3">
             <label className="form-label">Nombre</label>
-            <input type="text" name="firstName" className="form-control" value={form.firstName} onChange={handleChange} required />
+            <input
+              type="text"
+              className="form-control"
+              name="firstName"
+              value={form.firstName}
+              onChange={handleChange}
+              required
+            />
           </div>
           <div className="col-md-6 mb-3">
             <label className="form-label">Apellidos</label>
-            <input type="text" name="lastName" className="form-control" value={form.lastName} onChange={handleChange} required />
+            <input
+              type="text"
+              className="form-control"
+              name="lastName"
+              value={form.lastName}
+              onChange={handleChange}
+              required
+            />
           </div>
         </div>
 
         {/* DNI */}
         <div className="mb-3">
           <label className="form-label">DNI</label>
-          <input type="text" name="dni" className="form-control" value={form.dni} onChange={handleChange} required />
+          <input
+            type="text"
+            className="form-control"
+            name="dni"
+            value={form.dni}
+            onChange={handleChange}
+            required
+          />
         </div>
 
         {/* Email */}
         <div className="mb-3">
           <label className="form-label">Email</label>
-          <input type="email" name="email" className="form-control" value={form.email} onChange={handleChange} required />
+          <input
+            type="email"
+            className="form-control"
+            name="email"
+            value={form.email}
+            onChange={handleChange}
+            required
+          />
         </div>
 
-        {/* Contraseña y Confirmación */}
+        {/* Contraseña */}
         <div className="row">
           <div className="col-md-6 mb-3">
             <label className="form-label">Contraseña</label>
-            <input type="password" name="password" className="form-control" value={form.password} onChange={handleChange} required />
+            <input
+              type="password"
+              className="form-control"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              required
+            />
           </div>
           <div className="col-md-6 mb-3">
-            <label className="form-label">Confirmar Contraseña</label>
-            <input type="password" name="confirmPassword" className="form-control" value={form.confirmPassword} onChange={handleChange} required />
+            <label className="form-label">Confirmar contraseña</label>
+            <input
+              type="password"
+              className="form-control"
+              name="confirmPassword"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              required
+            />
           </div>
         </div>
 
         {/* Teléfono */}
         <div className="mb-3">
           <label className="form-label">Teléfono</label>
-          <input type="tel" name="phone" className="form-control" value={form.phone} onChange={handleChange} />
+          <input
+            type="tel"
+            className="form-control"
+            name="phone"
+            value={form.phone}
+            onChange={handleChange}
+          />
         </div>
 
-        {/* Fecha de Nacimiento */}
+        {/* Fecha de nacimiento */}
         <div className="mb-3">
-          <label className="form-label">Fecha de Nacimiento</label>
-          <input type="date" name="dateOfBirth" className="form-control" value={form.dateOfBirth} onChange={handleChange} />
+          <label className="form-label">Fecha de nacimiento</label>
+          <input
+            type="date"
+            className="form-control"
+            name="dateOfBirth"
+            value={form.dateOfBirth}
+            onChange={handleChange}
+          />
         </div>
 
-        {/* Opciones para médico */}
+        {/* Campos extra para médicos */}
         {form.role === 'doctor' && (
           <>
             <div className="mb-3">
               <label className="form-label">Especialidad</label>
-              <input type="text" name="specialty" className="form-control" value={form.specialty} onChange={handleChange} />
+              <input
+                type="text"
+                className="form-control"
+                name="specialty"
+                value={form.specialty}
+                onChange={handleChange}
+              />
             </div>
             <div className="mb-3">
               <label className="form-label">Disponibilidad</label>
-              <input type="text" name="availability" className="form-control" value={form.availability} onChange={handleChange} />
+              <input
+                type="text"
+                className="form-control"
+                name="availability"
+                value={form.availability}
+                onChange={handleChange}
+              />
             </div>
           </>
         )}
 
-        <button type="submit" className="btn btn-primary">Registrarse</button>
-        <p className="mt-3">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
+        <button type="submit" className="btn btn-primary w-100">
+          Registrarse
+        </button>
       </form>
+
+      <p className="mt-3 text-center">
+        ¿Ya tienes cuenta? <Link to="/login">Inicia sesión</Link>
+      </p>
     </div>
   );
 }
