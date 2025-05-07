@@ -1,4 +1,4 @@
-# version: "3.8"
+version: "3.8"
 
 services:
   db:
@@ -20,15 +20,34 @@ services:
     restart: always
     depends_on:
       - db
+    command: node index.js
     ports:
-      - "3001:3000" 
+      - "3001:3001"
     environment:
       - DATABASE_URL=postgresql://smart_healthcare:angelSuperSecret@db:5432/smart_healthcare_db
     volumes:
       - ./backend:/app
       - /app/node_modules
 
-  pgadmin:  # Move this under "services"
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: my_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      # Opcional: si tu frontend necesita saber la URL de la API
+      - VITE_API_URL=http://localhost:3001
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev"
+
+  pgadmin:
     image: dpage/pgadmin4
     container_name: my_pgadmin
     restart: always
