@@ -18,12 +18,12 @@ export default function MedicalRecordsPage() {
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors]   = useState([]);
 
-  // Búsqueda y paginación
+  // búsqueda, paginación
   const [search, setSearch]         = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Modal & form state
+  // modales y formulario
   const [showAdd, setShowAdd]           = useState(false);
   const [showEdit, setShowEdit]         = useState(false);
   const [showDel, setShowDel]           = useState(false);
@@ -43,30 +43,26 @@ export default function MedicalRecordsPage() {
     loadUsers();
   }, []);
 
-  // 1) Carga historiales
+  // 1) cargar historiales
   const loadRecords = async () => {
     setLoading(true);
     try {
       const { data } = await api.get('/api/medical-records');
       const formatted = data.map(r => {
-        // Extraer nombre/paciente
         const patientName = r.users_medical_records_patient_idTousers?.name || `#${r.patient_id}`;
         const doctorName  = r.users_medical_records_doctor_idTousers?.name  || `#${r.doctor_id}`;
-
-        // Formatear fecha
+        // fecha YYYY-MM-DD
         const dateStr = r.date
           ? new Date(r.date).toISOString().split('T')[0]
           : '';
-
-        // Formatear hora
+        // hora HH:MM
         let timeStr = '';
         if (r.time) {
           const t = new Date(r.time);
-          const hh = String(t.getUTCHours()).padStart(2, '0');
-          const mm = String(t.getUTCMinutes()).padStart(2, '0');
+          const hh = String(t.getUTCHours()).padStart(2,'0');
+          const mm = String(t.getUTCMinutes()).padStart(2,'0');
           timeStr = `${hh}:${mm}`;
         }
-
         return {
           ...r,
           patient_name: patientName,
@@ -83,7 +79,7 @@ export default function MedicalRecordsPage() {
     }
   };
 
-  // 2) Carga pacientes y doctores para los selects
+  // 2) cargar pacientes y doctores
   const loadUsers = async () => {
     try {
       const { data: all } = await api.get('/api/users');
@@ -96,7 +92,7 @@ export default function MedicalRecordsPage() {
 
   const handleChange = e => {
     const { name, value } = e.target;
-    setForm(f => ({ ...f, [name]: value }));
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   // ── ADD ──
@@ -115,9 +111,13 @@ export default function MedicalRecordsPage() {
   const submitAdd = async () => {
     try {
       await api.post('/api/medical-records', {
-        ...form,
         patient_id: Number(form.patient_id),
-        doctor_id:  Number(form.doctor_id)
+        doctor_id:  Number(form.doctor_id),
+        date:       form.date,
+        time:       form.time,
+        type:       form.type,
+        diagnostic: form.diagnostic,
+        treatment:  form.treatment
       });
       setShowAdd(false);
       loadRecords();
@@ -143,9 +143,13 @@ export default function MedicalRecordsPage() {
   const submitEdit = async () => {
     try {
       await api.put(`/api/medical-records/${currentRecord.record_id}`, {
-        ...form,
         patient_id: Number(form.patient_id),
-        doctor_id:  Number(form.doctor_id)
+        doctor_id:  Number(form.doctor_id),
+        date:       form.date,
+        time:       form.time,
+        type:       form.type,
+        diagnostic: form.diagnostic,
+        treatment:  form.treatment
       });
       setShowEdit(false);
       setCurrentRecord(null);
@@ -175,17 +179,15 @@ export default function MedicalRecordsPage() {
     return <div className="text-center mt-5"><Spinner animation="border" /></div>;
   }
 
-  // ── FILTRADO ──
+  // filtrado
   const q = search.toLowerCase();
-  const filtered = records.filter(r => {
-    return (
-      r.patient_name.toLowerCase().includes(q) ||
-      r.doctor_name.toLowerCase().includes(q) ||
-      (r.diagnostic || '').toLowerCase().includes(q)
-    );
-  });
+  const filtered = records.filter(r =>
+    r.patient_name.toLowerCase().includes(q) ||
+    r.doctor_name.toLowerCase().includes(q)  ||
+    (r.diagnostic || '').toLowerCase().includes(q)
+  );
 
-  // ── PAGINACIÓN ──
+  // paginación
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const start = (currentPage - 1) * itemsPerPage;
   const paged = filtered.slice(start, start + itemsPerPage);
@@ -284,7 +286,6 @@ export default function MedicalRecordsPage() {
                 ))}
               </Form.Select>
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Médico</Form.Label>
               <Form.Select
@@ -300,22 +301,18 @@ export default function MedicalRecordsPage() {
                 ))}
               </Form.Select>
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Fecha</Form.Label>
               <Form.Control type="date" name="date" value={form.date} onChange={handleChange} />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Hora</Form.Label>
               <Form.Control type="time" name="time" value={form.time} onChange={handleChange} />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Tipo</Form.Label>
               <Form.Control name="type" value={form.type} onChange={handleChange} />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Diagnóstico</Form.Label>
               <Form.Control
@@ -326,7 +323,6 @@ export default function MedicalRecordsPage() {
                 onChange={handleChange}
               />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Tratamiento</Form.Label>
               <Form.Control
@@ -367,7 +363,6 @@ export default function MedicalRecordsPage() {
                 ))}
               </Form.Select>
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Médico</Form.Label>
               <Form.Select
@@ -383,22 +378,18 @@ export default function MedicalRecordsPage() {
                 ))}
               </Form.Select>
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Fecha</Form.Label>
               <Form.Control type="date" name="date" value={form.date} onChange={handleChange} />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Hora</Form.Label>
               <Form.Control type="time" name="time" value={form.time} onChange={handleChange} />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Tipo</Form.Label>
               <Form.Control name="type" value={form.type} onChange={handleChange} />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Diagnóstico</Form.Label>
               <Form.Control
@@ -409,7 +400,6 @@ export default function MedicalRecordsPage() {
                 onChange={handleChange}
               />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Tratamiento</Form.Label>
               <Form.Control

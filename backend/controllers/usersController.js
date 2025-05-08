@@ -3,17 +3,32 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-
 const CreateUserDto = require('../dtos/createUser.dto');
 
 /**
  * GET /api/users
- * Retrieve all users
+ * Retrieve all users (con array de roles)
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    const allUsers = await prisma.users.findMany();
-    return res.status(200).json(allUsers);
+    const allUsers = await prisma.users.findMany({
+      include: {
+        user_roles: {
+          include: { roles: true }
+        }
+      }
+    });
+
+    // Formateamos cada usuario para devolver { user_id, name, dni, email, roles: [ 'Doctor', ... ] }
+    const formatted = allUsers.map(u => ({
+      user_id: u.user_id,
+      name:    u.name,
+      dni:     u.dni,
+      email:   u.email,
+      roles:   u.user_roles.map(ur => ur.roles.role_name)
+    }));
+
+    return res.status(200).json(formatted);
   } catch (error) {
     console.error('Error in getAllUsers:', error);
     return res.status(500).json({ error: 'Failed to retrieve users' });
@@ -22,21 +37,28 @@ exports.getAllUsers = async (req, res) => {
 
 /**
  * GET /api/users/:id
- * Retrieve a user by ID
  */
 exports.getUserById = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await prisma.users.findUnique({
       where: { user_id: Number(id) },
-      
+      include: {
+        user_roles: { include: { roles: true } }
+      }
     });
-
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    return res.status(200).json(user);
+    // Formateamos igual que en getAllUsers
+    const formatted = {
+      user_id: user.user_id,
+      name:    user.name,
+      dni:     user.dni,
+      email:   user.email,
+      roles:   user.user_roles.map(ur => ur.roles.role_name)
+    };
+    return res.status(200).json(formatted);
   } catch (error) {
     console.error('Error in getUserById:', error);
     return res.status(500).json({ error: 'Failed to retrieve user' });
@@ -45,102 +67,110 @@ exports.getUserById = async (req, res) => {
 
 /**
  * POST /api/users
- * Create a new user using a DTO
  */
 exports.createUser = async (req, res) => {
   try {
-    // 1. Instantiate the DTO with request data
     const dto = new CreateUserDto(req.body);
-
-    // 2. Validate the data (throws an error if invalid)
     dto.validate();
 
-    // 3. Use dto fields (dto.email, dto.password, etc.) to create the user
     const newUser = await prisma.users.create({
       data: {
-        name: dto.name,
-        email: dto.email,
-        password: dto.password,
-      },
+        name:     dto.name,
+        email:    dto.email,
+        password: dto.password
+      }
     });
-
     return res.status(201).json(newUser);
   } catch (error) {
     console.error('Error in createUser:', error);
-
-    // Handle specific Prisma errors
     if (error.code === 'P2002') {
-      // Unique constraint (e.g., duplicate email)
       return res.status(409).json({ error: 'Email already in use' });
     }
-
-    // If the error is from dto.validate() or anything else, return 400
     return res.status(400).json({ error: error.message });
   }
 };
 
 /**
  * PUT /api/users/:id
- * Update a user
  */
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, password } = req.body;
 
-    // Check if the user exists
     const existingUser = await prisma.users.findUnique({
-      where: { user_id: Number(id) },
+      where: { user_id: Number(id) }
     });
     if (!existingUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    try {
-      const updatedUser = await prisma.users.update({
-        where: { user_id: Number(id) },
-        data: { name, email, password },
-      });
-      return res.status(200).json(updatedUser);
-    } catch (updateError) {
-      console.error('Error in updateUser (Prisma):', updateError);
+    const updatedUser = await prisma.users.update({
+      where: { user_id: Number(id) },
+      data: { name, email, password }
+    });
+    return res.status(200).json(updatedUser);
 
-      if (updateError.code === 'P2002') {
-        // Duplicate email or another unique constraint
-        return res.status(409).json({ error: 'Email already in use' });
-      }
-
-      return res.status(500).json({ error: 'Failed to update user' });
-    }
   } catch (error) {
-    console.error('Error in updateUser (general):', error);
-    return res.status(500).json({ error: 'Internal error while updating user' });
+    console.error('Error in updateUser:', error);
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Email already in use' });
+    }
+    return res.status(500).json({ error: 'Failed to update user' });
   }
 };
 
 /**
  * DELETE /api/users/:id
- * Delete a user
  */
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Check if the user exists
     const existingUser = await prisma.users.findUnique({
-      where: { user_id: Number(id) },
+      where: { user_id: Number(id) }
     });
     if (!existingUser) {
       return res.status(404).json({ error: 'User not found' });
     }
-
     await prisma.users.delete({
-      where: { user_id: Number(id) },
+      where: { user_id: Number(id) }
     });
-
-    return res.status(204).send(); // No Content
+    return res.status(204).send();
   } catch (error) {
     console.error('Error in deleteUser:', error);
     return res.status(500).json({ error: 'Failed to delete user' });
+  }
+};
+
+/**
+ * GET /api/users/search
+ * Query params: ?role=Patient|Doctor&q=text
+ */
+exports.searchUsers = async (req, res) => {
+  try {
+    const { role, q } = req.query;
+    if (!role || !q) {
+      return res.status(400).json({ error: 'Se requiere role y q' });
+    }
+    const roleName = role.toLowerCase() === 'doctor' ? 'Doctor' : 'Patient';
+    const users = await prisma.users.findMany({
+      where: {
+        AND: [
+          { user_roles: { some: { roles: { role_name: roleName } } } },
+          {
+            OR: [
+              { name:  { contains: q, mode: 'insensitive' } },
+              { dni:   { contains: q, mode: 'insensitive' } }
+            ]
+          }
+        ]
+      },
+      take: 10,
+      select: { user_id: true, name: true, dni: true }
+    });
+    return res.json(users);
+  } catch (err) {
+    console.error('Error in searchUsers:', err);
+    return res.status(500).json({ error: 'Error al buscar usuarios' });
   }
 };

@@ -84,3 +84,13 @@ router.get(
   );
   
   module.exports = router;
+
+   /**
+   * Get con search 
+   */
+  router.get(
+    '/search',
+    authMiddleware,
+    authorizeRoles(['Doctor','Admin']),
+    usersController.searchUsers
+  );

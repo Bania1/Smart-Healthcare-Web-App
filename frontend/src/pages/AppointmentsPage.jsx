@@ -13,6 +13,7 @@ export default function AppointmentsPage() {
   const [currentPage,  setCurrentPage ] = useState(1);
   const itemsPerPage = 10;
 
+  // Para los selects
   const [patients, setPatients] = useState([]);
   const [doctors,  setDoctors ] = useState([]);
 
@@ -58,6 +59,7 @@ export default function AppointmentsPage() {
   const loadUsers = async () => {
     try {
       const { data: all } = await api.get('/api/users');
+      // asumiendo que el back devuelve user.roles = ['Patient', ...]
       setPatients(all.filter(u => u.roles?.includes('Patient')));
       setDoctors (all.filter(u => u.roles?.includes('Doctor')));
     } catch (err) {
@@ -80,7 +82,8 @@ export default function AppointmentsPage() {
       await api.post('/api/appointments', {
         patient_id: Number(form.patient_id),
         doctor_id:  Number(form.doctor_id),
-        date_time:  `${form.date}T${form.time}:00.000Z`,
+        date:       form.date,
+        time:       form.time,
         status:     form.status
       });
       setShowAdd(false);
@@ -107,7 +110,8 @@ export default function AppointmentsPage() {
       await api.put(`/api/appointments/${current.appointment_id}`, {
         patient_id: Number(form.patient_id),
         doctor_id:  Number(form.doctor_id),
-        date_time:  `${form.date}T${form.time}:00.000Z`,
+        date:       form.date,
+        time:       form.time,
         status:     form.status
       });
       setShowEdit(false);
@@ -130,11 +134,12 @@ export default function AppointmentsPage() {
     }
   };
 
+  // Loading
   if (loading) {
     return <div className="text-center mt-5"><Spinner animation="border" /></div>;
   }
 
-  // Filtrado & paginación
+  // Filter + Paginate
   const filtered = appointments.filter(a =>
     a.patient_name.toLowerCase().includes(search.toLowerCase()) ||
     a.doctor_name.toLowerCase().includes(search.toLowerCase())  ||
@@ -173,24 +178,30 @@ export default function AppointmentsPage() {
               <td>{a.time}</td>
               <td>{a.status}</td>
               <td>
-                <Button size="sm" onClick={() => openEdit(a)} className="me-2">Editar</Button>
-                <Button size="sm" variant="danger" onClick={() => openDel(a)}>Borrar</Button>
+                <Button size="sm" onClick={() => openEdit(a)} className="me-2">
+                  Editar
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => openDel(a)}>
+                  Borrar
+                </Button>
               </td>
             </tr>
           ))}
-          {paged.length === 0 && (
-            <tr><td colSpan="7" className="text-center">No hay resultados</td></tr>
+          {paged.length===0 && (
+            <tr>
+              <td colSpan="7" className="text-center">No hay resultados</td>
+            </tr>
           )}
         </tbody>
       </Table>
 
-      {totalPages > 1 && (
+      {totalPages>1 && (
         <Pagination className="justify-content-center">
-          {[...Array(totalPages)].map((_, i) => (
+          {Array.from({ length: totalPages }).map((_, i) => (
             <Pagination.Item
               key={i}
-              active={currentPage === i+1}
-              onClick={() => setCurrentPage(i+1)}
+              active={currentPage===i+1}
+              onClick={()=>setCurrentPage(i+1)}
             >
               {i+1}
             </Pagination.Item>
@@ -198,7 +209,7 @@ export default function AppointmentsPage() {
         </Pagination>
       )}
 
-      {/* ─── MODAL ADD ─── */}
+      {/* ── MODAL ADD ── */}
       <Modal show={showAdd} onHide={()=>setShowAdd(false)}>
         <Modal.Header closeButton><Modal.Title>Nueva Cita</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -218,6 +229,7 @@ export default function AppointmentsPage() {
                 ))}
               </Form.Select>
             </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>Médico</Form.Label>
               <Form.Select
@@ -233,14 +245,17 @@ export default function AppointmentsPage() {
                 ))}
               </Form.Select>
             </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>Fecha</Form.Label>
               <Form.Control type="date" name="date" value={form.date} onChange={handleChange}/>
             </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>Hora</Form.Label>
               <Form.Control type="time" name="time" value={form.time} onChange={handleChange}/>
             </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>Estado</Form.Label>
               <Form.Control name="status" value={form.status} onChange={handleChange}/>
@@ -253,56 +268,13 @@ export default function AppointmentsPage() {
         </Modal.Footer>
       </Modal>
 
-      {/* ─── MODAL EDIT ─── */}
+      {/* ── MODAL EDIT ── */}
       <Modal show={showEdit} onHide={()=>setShowEdit(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Editar Cita #{current?.appointment_id}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Paciente</Form.Label>
-              <Form.Select
-                name="patient_id"
-                value={form.patient_id}
-                onChange={handleChange}
-              >
-                <option value="">— selecciona paciente —</option>
-                {patients.map(p => (
-                  <option key={p.user_id} value={p.user_id}>
-                    {p.name} ({p.dni})
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Médico</Form.Label>
-              <Form.Select
-                name="doctor_id"
-                value={form.doctor_id}
-                onChange={handleChange}
-              >
-                <option value="">— selecciona médico —</option>
-                {doctors.map(d => (
-                  <option key={d.user_id} value={d.user_id}>
-                    {d.name} ({d.dni})
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Fecha</Form.Label>
-              <Form.Control type="date" name="date" value={form.date} onChange={handleChange}/>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Hora</Form.Label>
-              <Form.Control type="time" name="time" value={form.time} onChange={handleChange}/>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Estado</Form.Label>
-              <Form.Control name="status" value={form.status} onChange={handleChange}/>
-            </Form.Group>
-          </Form>
+          {/* Repite exactamente los mismos Form.Group que en ADD */}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={()=>setShowEdit(false)}>Cancelar</Button>
@@ -310,7 +282,7 @@ export default function AppointmentsPage() {
         </Modal.Footer>
       </Modal>
 
-      {/* ─── MODAL DELETE ─── */}
+      {/* ── MODAL DELETE ── */}
       <Modal show={showDel} onHide={()=>setShowDel(false)} centered>
         <Modal.Header closeButton className="bg-danger text-white">
           <Modal.Title>Confirmar Borrado</Modal.Title>
