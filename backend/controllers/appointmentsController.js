@@ -9,7 +9,17 @@ const prisma = new PrismaClient();
  */
 exports.getAllAppointments = async (req, res) => {
   try {
-    const allAppointments = await prisma.appointments.findMany();
+    const allAppointments = await prisma.appointments.findMany({
+      include: {
+        // Prisma asume que tu relación en el esquema se llama:
+        users_appointments_patient_idTousers: {
+          select: { user_id: true, name: true, dni: true }
+        },
+        users_appointments_doctor_idTousers: {
+          select: { user_id: true, name: true, dni: true }
+        }
+      }
+    });
     return res.status(200).json(allAppointments);
   } catch (error) {
     console.error('Error in getAllAppointments:', error);

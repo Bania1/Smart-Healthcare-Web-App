@@ -15,50 +15,82 @@ import {
 export default function MedicalRecordsPage() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors]   = useState([]);
 
   // Búsqueda y paginación
-  const [search, setSearch] = useState('');
+  const [search, setSearch]         = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Modales y record actual
-  const [showAdd, setShowAdd]     = useState(false);
-  const [showEdit, setShowEdit]   = useState(false);
-  const [showDel, setShowDel]     = useState(false);
-  const [current, setCurrent]     = useState(null);
-
-  // Formulario
+  // Modal & form state
+  const [showAdd, setShowAdd]           = useState(false);
+  const [showEdit, setShowEdit]         = useState(false);
+  const [showDel, setShowDel]           = useState(false);
+  const [currentRecord, setCurrentRecord] = useState(null);
   const [form, setForm] = useState({
     patient_id: '',
-    doctor_id:  '',
-    type:       '',       // ← Nuevo campo type
-    date:       '',
-    diagnostic:'',
-    treatment:  ''
+    doctor_id: '',
+    date: '',
+    time: '',
+    type: '',
+    diagnostic: '',
+    treatment: ''
   });
 
-  // Carga inicial
   useEffect(() => {
-    load();
+    loadRecords();
+    loadUsers();
   }, []);
 
-  // Obtiene y transforma los registros
-  const load = async () => {
+  // 1) Carga historiales
+  const loadRecords = async () => {
     setLoading(true);
     try {
       const { data } = await api.get('/api/medical-records');
-      // Si tu back devuelve date_time, lo partes en date+hora, si sólo date, úsalo directamente:
-      const transformed = data.map(r => ({
-        ...r,
-        date: r.date_time?.split('T')[0] || r.date, 
-        patient_name: r.users_medical_records_patient_idTousers?.name || `#${r.patient_id}`,
-        doctor_name:  r.users_medical_records_doctor_idTousers?.name  || `#${r.doctor_id}`,
-      }));
-      setRecords(transformed);
+      const formatted = data.map(r => {
+        // Extraer nombre/paciente
+        const patientName = r.users_medical_records_patient_idTousers?.name || `#${r.patient_id}`;
+        const doctorName  = r.users_medical_records_doctor_idTousers?.name  || `#${r.doctor_id}`;
+
+        // Formatear fecha
+        const dateStr = r.date
+          ? new Date(r.date).toISOString().split('T')[0]
+          : '';
+
+        // Formatear hora
+        let timeStr = '';
+        if (r.time) {
+          const t = new Date(r.time);
+          const hh = String(t.getUTCHours()).padStart(2, '0');
+          const mm = String(t.getUTCMinutes()).padStart(2, '0');
+          timeStr = `${hh}:${mm}`;
+        }
+
+        return {
+          ...r,
+          patient_name: patientName,
+          doctor_name:  doctorName,
+          date:  dateStr,
+          time:  timeStr
+        };
+      });
+      setRecords(formatted);
     } catch (err) {
       console.error('Error fetching medical records:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 2) Carga pacientes y doctores para los selects
+  const loadUsers = async () => {
+    try {
+      const { data: all } = await api.get('/api/users');
+      setPatients(all.filter(u => u.roles?.includes('Patient')));
+      setDoctors (all.filter(u => u.roles?.includes('Doctor')));
+    } catch (err) {
+      console.error('Error loading users:', err);
     }
   };
 
@@ -67,70 +99,73 @@ export default function MedicalRecordsPage() {
     setForm(f => ({ ...f, [name]: value }));
   };
 
-  // ─── ADD ───
+  // ── ADD ──
   const openAdd = () => {
-    setForm({ patient_id:'', doctor_id:'', type:'', date:'', diagnostic:'', treatment:'' });
+    setForm({
+      patient_id: '',
+      doctor_id: '',
+      date: '',
+      time: '',
+      type: '',
+      diagnostic: '',
+      treatment: ''
+    });
     setShowAdd(true);
   };
   const submitAdd = async () => {
     try {
       await api.post('/api/medical-records', {
-        patient_id:  Number(form.patient_id),
-        doctor_id:   Number(form.doctor_id),
-        type:        form.type,
-        date:        form.date,
-        diagnostic:  form.diagnostic,
-        treatment:   form.treatment
+        ...form,
+        patient_id: Number(form.patient_id),
+        doctor_id:  Number(form.doctor_id)
       });
       setShowAdd(false);
-      load();
+      loadRecords();
     } catch (err) {
       alert(err.response?.data?.error || err.message);
     }
   };
 
-  // ─── EDIT ───
-  const openEdit = rec => {
-    setCurrent(rec);
+  // ── EDIT ──
+  const openEdit = r => {
+    setCurrentRecord(r);
     setForm({
-      patient_id: rec.patient_id,
-      doctor_id:  rec.doctor_id,
-      type:       rec.type,
-      date:       rec.date,
-      diagnostic:rec.diagnostic,
-      treatment:  rec.treatment
+      patient_id: r.patient_id,
+      doctor_id:  r.doctor_id,
+      date:       r.date,
+      time:       r.time,
+      type:       r.type,
+      diagnostic: r.diagnostic || '',
+      treatment:  r.treatment  || ''
     });
     setShowEdit(true);
   };
   const submitEdit = async () => {
     try {
-      await api.put(`/api/medical-records/${current.medical_record_id}`, {
-        patient_id:  Number(form.patient_id),
-        doctor_id:   Number(form.doctor_id),
-        type:        form.type,
-        date:        form.date,
-        diagnostic:  form.diagnostic,
-        treatment:   form.treatment
+      await api.put(`/api/medical-records/${currentRecord.record_id}`, {
+        ...form,
+        patient_id: Number(form.patient_id),
+        doctor_id:  Number(form.doctor_id)
       });
       setShowEdit(false);
-      setCurrent(null);
-      load();
+      setCurrentRecord(null);
+      loadRecords();
     } catch (err) {
       alert(err.response?.data?.error || err.message);
     }
   };
 
-  // ─── DELETE ───
-  const openDel = rec => {
-    setCurrent(rec);
+  // ── DELETE ──
+  const openDel = r => {
+    setCurrentRecord(r);
     setShowDel(true);
   };
   const submitDel = async () => {
     try {
-      await api.delete(`/api/medical-records/${current.medical_record_id}`);
+      await api.delete(`/api/medical-records/${currentRecord.record_id}`);
       setShowDel(false);
-      setCurrent(null);
-      load();
+      setCurrentRecord(null);
+      loadRecords();
     } catch (err) {
       alert(err.response?.data?.error || err.message);
     }
@@ -140,13 +175,17 @@ export default function MedicalRecordsPage() {
     return <div className="text-center mt-5"><Spinner animation="border" /></div>;
   }
 
-  // Filtrado + paginación
-  const filtered = records.filter(r =>
-    r.patient_name.toLowerCase().includes(search.toLowerCase()) ||
-    r.doctor_name.toLowerCase().includes(search.toLowerCase()) ||
-    r.type.toLowerCase().includes(search.toLowerCase()) ||
-    r.diagnostic.toLowerCase().includes(search.toLowerCase())
-  );
+  // ── FILTRADO ──
+  const q = search.toLowerCase();
+  const filtered = records.filter(r => {
+    return (
+      r.patient_name.toLowerCase().includes(q) ||
+      r.doctor_name.toLowerCase().includes(q) ||
+      (r.diagnostic || '').toLowerCase().includes(q)
+    );
+  });
+
+  // ── PAGINACIÓN ──
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const start = (currentPage - 1) * itemsPerPage;
   const paged = filtered.slice(start, start + itemsPerPage);
@@ -157,9 +196,10 @@ export default function MedicalRecordsPage() {
       <Button variant="success" className="mb-3" onClick={openAdd}>
         + Nuevo Registro
       </Button>
+
       <InputGroup className="mb-3">
         <FormControl
-          placeholder="Buscar por paciente, médico, tipo o diagnóstico…"
+          placeholder="Buscar por paciente, médico o diagnóstico…"
           value={search}
           onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
         />
@@ -171,8 +211,9 @@ export default function MedicalRecordsPage() {
             <th>ID</th>
             <th>Paciente</th>
             <th>Médico</th>
-            <th>Tipo</th>
             <th>Fecha</th>
+            <th>Hora</th>
+            <th>Tipo</th>
             <th>Diagnóstico</th>
             <th>Tratamiento</th>
             <th>Acciones</th>
@@ -180,27 +221,20 @@ export default function MedicalRecordsPage() {
         </thead>
         <tbody>
           {paged.map(r => (
-            <tr key={r.medical_record_id}>
-              <td>{r.medical_record_id}</td>
+            <tr key={r.record_id}>
+              <td>{r.record_id}</td>
               <td>{r.patient_name}</td>
               <td>{r.doctor_name}</td>
-              <td>{r.type}</td>
               <td>{r.date}</td>
+              <td>{r.time}</td>
+              <td>{r.type}</td>
               <td>{r.diagnostic}</td>
               <td>{r.treatment}</td>
               <td>
-                <Button
-                  size="sm"
-                  className="me-2"
-                  onClick={() => openEdit(r)}
-                >
+                <Button size="sm" className="me-2" onClick={() => openEdit(r)}>
                   Editar
                 </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => openDel(r)}
-                >
+                <Button size="sm" variant="danger" onClick={() => openDel(r)}>
                   Borrar
                 </Button>
               </td>
@@ -208,7 +242,7 @@ export default function MedicalRecordsPage() {
           ))}
           {paged.length === 0 && (
             <tr>
-              <td colSpan="8" className="text-center">No hay resultados</td>
+              <td colSpan="9" className="text-center">No hay resultados</td>
             </tr>
           )}
         </tbody>
@@ -228,64 +262,77 @@ export default function MedicalRecordsPage() {
         </Pagination>
       )}
 
-      {/* ───── MODAL CREAR ───── */}
+      {/* ── MODAL ADD ── */}
       <Modal show={showAdd} onHide={() => setShowAdd(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Nuevo Registro</Modal.Title>
+          <Modal.Title>Nuevo Historial</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>ID Paciente</Form.Label>
-              <Form.Control
+              <Form.Label>Paciente</Form.Label>
+              <Form.Select
                 name="patient_id"
                 value={form.patient_id}
                 onChange={handleChange}
-              />
+              >
+                <option value="">— selecciona paciente —</option>
+                {patients.map(p => (
+                  <option key={p.user_id} value={p.user_id}>
+                    {p.name} ({p.dni})
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
+
             <Form.Group className="mb-3">
-              <Form.Label>ID Médico</Form.Label>
-              <Form.Control
+              <Form.Label>Médico</Form.Label>
+              <Form.Select
                 name="doctor_id"
                 value={form.doctor_id}
                 onChange={handleChange}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Tipo de Registro</Form.Label>
-              <Form.Control
-                as="select"
-                name="type"
-                value={form.type}
-                onChange={handleChange}
               >
-                <option value="">-- selecciona uno --</option>
-                <option value="Checkup">Checkup</option>
-                <option value="Surgery">Cirugía</option>
-                <option value="Consultation">Consulta</option>
-              </Form.Control>
+                <option value="">— selecciona médico —</option>
+                {doctors.map(d => (
+                  <option key={d.user_id} value={d.user_id}>
+                    {d.name} ({d.dni})
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>Fecha</Form.Label>
-              <Form.Control
-                type="date"
-                name="date"
-                value={form.date}
-                onChange={handleChange}
-              />
+              <Form.Control type="date" name="date" value={form.date} onChange={handleChange} />
             </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Hora</Form.Label>
+              <Form.Control type="time" name="time" value={form.time} onChange={handleChange} />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Tipo</Form.Label>
+              <Form.Control name="type" value={form.type} onChange={handleChange} />
+            </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>Diagnóstico</Form.Label>
               <Form.Control
+                as="textarea"
                 name="diagnostic"
+                rows={2}
                 value={form.diagnostic}
                 onChange={handleChange}
               />
             </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>Tratamiento</Form.Label>
               <Form.Control
+                as="textarea"
                 name="treatment"
+                rows={2}
                 value={form.treatment}
                 onChange={handleChange}
               />
@@ -293,82 +340,105 @@ export default function MedicalRecordsPage() {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAdd(false)}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={submitAdd}>
-            Crear
-          </Button>
+          <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancelar</Button>
+          <Button variant="success" onClick={submitAdd}>Crear</Button>
         </Modal.Footer>
       </Modal>
 
-      {/* ───── MODAL EDITAR ───── */}
+      {/* ── MODAL EDIT ── */}
       <Modal show={showEdit} onHide={() => setShowEdit(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Editar Registro #{current?.medical_record_id}</Modal.Title>
+          <Modal.Title>Editar Historial #{currentRecord?.record_id}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
-            {['patient_id','doctor_id','type','date','diagnostic','treatment'].map(name => {
-              const label = {
-                patient_id: 'ID Paciente',
-                doctor_id:  'ID Médico',
-                type:       'Tipo',
-                date:       'Fecha',
-                diagnostic:'Diagnóstico',
-                treatment:  'Tratamiento'
-              }[name];
-              const props = name==='date'
-                ? { type: 'date' }
-                : name==='type'
-                ? { as: 'select', children: (
-                    <>
-                      <option value="">--</option>
-                      <option value="Checkup">Checkup</option>
-                      <option value="Surgery">Cirugía</option>
-                      <option value="Consultation">Consulta</option>
-                    </>
-                  )}
-                : {};
-              return (
-                <Form.Group className="mb-3" key={name}>
-                  <Form.Label>{label}</Form.Label>
-                  <Form.Control
-                    name={name}
-                    value={form[name]}
-                    onChange={handleChange}
-                    {...props}
-                  />
-                </Form.Group>
-              );
-            })}
+            <Form.Group className="mb-3">
+              <Form.Label>Paciente</Form.Label>
+              <Form.Select
+                name="patient_id"
+                value={form.patient_id}
+                onChange={handleChange}
+              >
+                <option value="">— selecciona paciente —</option>
+                {patients.map(p => (
+                  <option key={p.user_id} value={p.user_id}>
+                    {p.name} ({p.dni})
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Médico</Form.Label>
+              <Form.Select
+                name="doctor_id"
+                value={form.doctor_id}
+                onChange={handleChange}
+              >
+                <option value="">— selecciona médico —</option>
+                {doctors.map(d => (
+                  <option key={d.user_id} value={d.user_id}>
+                    {d.name} ({d.dni})
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Fecha</Form.Label>
+              <Form.Control type="date" name="date" value={form.date} onChange={handleChange} />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Hora</Form.Label>
+              <Form.Control type="time" name="time" value={form.time} onChange={handleChange} />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Tipo</Form.Label>
+              <Form.Control name="type" value={form.type} onChange={handleChange} />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Diagnóstico</Form.Label>
+              <Form.Control
+                as="textarea"
+                name="diagnostic"
+                rows={2}
+                value={form.diagnostic}
+                onChange={handleChange}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Tratamiento</Form.Label>
+              <Form.Control
+                as="textarea"
+                name="treatment"
+                rows={2}
+                value={form.treatment}
+                onChange={handleChange}
+              />
+            </Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowEdit(false)}>
-            Cancelar
-          </Button>
-          <Button variant="primary" onClick={submitEdit}>
-            Guardar
-          </Button>
+          <Button variant="secondary" onClick={() => setShowEdit(false)}>Cancelar</Button>
+          <Button variant="primary" onClick={submitEdit}>Guardar</Button>
         </Modal.Footer>
       </Modal>
 
-      {/* ───── MODAL BORRAR ───── */}
+      {/* ── MODAL DELETE ── */}
       <Modal show={showDel} onHide={() => setShowDel(false)} centered>
         <Modal.Header closeButton className="bg-danger text-white">
-          <Modal.Title>Confirmar Borrado</Modal.Title>
+          <Modal.Title>Confirmar Eliminación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          ¿Seguro que deseas eliminar el registro #{current?.medical_record_id}?
+          ¿Seguro que deseas eliminar el historial #{currentRecord?.record_id}?
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="light" onClick={() => setShowDel(false)}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={submitDel}>
-            Borrar
-          </Button>
+          <Button variant="light" onClick={() => setShowDel(false)}>Cancelar</Button>
+          <Button variant="danger" onClick={submitDel}>Borrar</Button>
         </Modal.Footer>
       </Modal>
     </div>

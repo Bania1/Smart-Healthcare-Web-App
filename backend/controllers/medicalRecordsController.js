@@ -1,19 +1,25 @@
 // controllers/medicalRecordsController.js
-
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Import your DTO
-const CreateMedicalRecordDto = require('../dtos/createMedicalRecord.dto');
-
 /**
  * GET /api/medical-records
- * Retrieve all medical records
+ * Listado de todos los historiales (con paciente y médico)
  */
 exports.getAllMedicalRecords = async (req, res) => {
   try {
-    const allRecords = await prisma.medical_records.findMany();
-    return res.status(200).json(allRecords);
+    const records = await prisma.medical_records.findMany({
+      include: {
+        users_medical_records_patient_idTousers: {
+          select: { user_id: true, name: true }
+        },
+        users_medical_records_doctor_idTousers: {
+          select: { user_id: true, name: true }
+        }
+      },
+      orderBy: { record_id: 'desc' }
+    });
+    return res.json(records);
   } catch (error) {
     console.error('Error in getAllMedicalRecords:', error);
     return res.status(500).json({ error: 'Failed to retrieve medical records' });
@@ -22,157 +28,158 @@ exports.getAllMedicalRecords = async (req, res) => {
 
 /**
  * GET /api/medical-records/:id
- * Retrieve a medical record by ID
+ * Recuperar un historial por ID (con paciente y médico)
  */
 exports.getMedicalRecordById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
     const record = await prisma.medical_records.findUnique({
-      where: { record_id: Number(id) },
-      // If you want to include doctor/patient info:
-      /* include: {
-        users_medical_records_doctor_idTousers: true,
-        users_medical_records_patient_idTousers: true
-      } */
+      where: { record_id: id },
+      include: {
+        users_medical_records_patient_idTousers: {
+          select: { user_id: true, name: true }
+        },
+        users_medical_records_doctor_idTousers: {
+          select: { user_id: true, name: true }
+        }
+      }
     });
 
     if (!record) {
       return res.status(404).json({ error: 'Medical record not found' });
     }
 
-    return res.status(200).json(record);
+    return res.json(record);
   } catch (error) {
     console.error('Error in getMedicalRecordById:', error);
-    return res.status(500).json({ error: 'Failed to retrieve the medical record' });
+    return res.status(500).json({ error: 'Failed to retrieve medical record' });
   }
 };
 
 /**
  * POST /api/medical-records
- * Create a new medical record using a DTO
+ * Crea un nuevo historial
  */
 exports.createMedicalRecord = async (req, res) => {
   try {
-    // 1. Instantiate the DTO with the incoming request body
-    const dto = new CreateMedicalRecordDto(req.body);
+    const {
+      patient_id,
+      doctor_id,
+      date,         // YYYY-MM-DD
+      time,         // HH:MM
+      type,
+      diagnostic,
+      treatment
+    } = req.body;
 
-    // 2. Validate the fields (throws an error if invalid)
-    dto.validate();
-
-    // 3. Parse date if provided
-    const parsedDate = dto.date ? new Date(dto.date) : null;
-
-    // 4. Create the medical record using the DTO fields
-    try {
-      const newRecord = await prisma.medical_records.create({
-        data: {
-          date: parsedDate,
-          notes: dto.notes,
-          type: dto.type,
-          patient_id: dto.patient_id,
-          doctor_id: dto.doctor_id
-        },
-      });
-
-      return res.status(201).json(newRecord);
-    } catch (createError) {
-      console.error('Error in createMedicalRecord (Prisma):', createError);
-
-      // If there's a foreign key violation (e.g., patient_id or doctor_id not existing)
-      if (createError.code === 'P2003') {
-        return res.status(400).json({
-          error: 'Foreign key violation: patient_id or doctor_id do not exist'
-        });
-      }
-      // If there's a unique constraint violation
-      if (createError.code === 'P2002') {
-        return res.status(409).json({
-          error: 'A record with these constraints already exists'
-        });
-      }
-      return res.status(500).json({ error: 'Failed to create the medical record' });
+    // Validación mínima
+    if (!patient_id || !doctor_id || !date || !time || !type) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    // Parseamos fecha y hora
+    const dateObj = new Date(date);
+    const timeObj = new Date(`1970-01-01T${time}:00`);
+
+    const newRecord = await prisma.medical_records.create({
+      data: {
+        patient_id: Number(patient_id),
+        doctor_id:  Number(doctor_id),
+        date:       dateObj,
+        time:       timeObj,
+        type,
+        diagnostic: diagnostic || null,
+        treatment:  treatment  || null
+      }
+    });
+
+    return res.status(201).json(newRecord);
   } catch (error) {
-    console.error('Error in createMedicalRecord (general):', error);
-    // If the DTO validation fails, or any other error, respond accordingly
-    return res.status(400).json({ error: error.message });
+    console.error('Error in createMedicalRecord:', error);
+    // Violación de FK
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        error: 'Foreign key violation: patient_id or doctor_id do not exist'
+      });
+    }
+    return res.status(500).json({ error: 'Failed to create medical record' });
   }
 };
 
 /**
  * PUT /api/medical-records/:id
- * Update a medical record
+ * Actualiza un historial existente
  */
 exports.updateMedicalRecord = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { date, notes, type, patient_id, doctor_id } = req.body;
-
-    // Check if the record exists
-    const existingRecord = await prisma.medical_records.findUnique({
-      where: { record_id: Number(id) },
+    const id = Number(req.params.id);
+    const existing = await prisma.medical_records.findUnique({
+      where: { record_id: id }
     });
-    if (!existingRecord) {
+    if (!existing) {
       return res.status(404).json({ error: 'Medical record not found' });
     }
 
-    try {
-      const updatedRecord = await prisma.medical_records.update({
-        where: { record_id: Number(id) },
-        data: {
-          date: date ? new Date(date) : existingRecord.date,
-          notes: notes ?? existingRecord.notes,
-          type: type ?? existingRecord.type,
-          patient_id: patient_id ?? existingRecord.patient_id,
-          doctor_id: doctor_id ?? existingRecord.doctor_id,
-        },
-      });
+    const {
+      patient_id,
+      doctor_id,
+      date,
+      time,
+      type,
+      diagnostic,
+      treatment
+    } = req.body;
 
-      return res.status(200).json(updatedRecord);
-    } catch (updateError) {
-      console.error('Error in updateMedicalRecord (Prisma):', updateError);
+    // Solo parseamos si vienen; si no, mantenemos el existente
+    const dateObj = date ? new Date(date) : existing.date;
+    const timeObj = time ? new Date(`1970-01-01T${time}:00`) : existing.time;
 
-      if (updateError.code === 'P2003') {
-        return res.status(400).json({
-          error: 'Foreign key violation: patient_id or doctor_id do not exist',
-        });
+    const updated = await prisma.medical_records.update({
+      where: { record_id: id },
+      data: {
+        patient_id: Number(patient_id) || existing.patient_id,
+        doctor_id:  Number(doctor_id)  || existing.doctor_id,
+        date:       dateObj,
+        time:       timeObj,
+        type:       type        || existing.type,
+        diagnostic: diagnostic || existing.diagnostic,
+        treatment:  treatment   || existing.treatment
       }
-      if (updateError.code === 'P2002') {
-        return res.status(409).json({
-          error: 'A record with these constraints already exists',
-        });
-      }
-      return res.status(500).json({ error: 'Failed to update the medical record' });
-    }
+    });
+
+    return res.json(updated);
   } catch (error) {
-    console.error('Error in updateMedicalRecord (general):', error);
-    return res.status(500).json({ error: 'Internal error while updating the medical record' });
+    console.error('Error in updateMedicalRecord:', error);
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        error: 'Foreign key violation: patient_id or doctor_id do not exist'
+      });
+    }
+    return res.status(500).json({ error: 'Failed to update medical record' });
   }
 };
 
 /**
  * DELETE /api/medical-records/:id
- * Delete a medical record
+ * Elimina un historial
  */
 exports.deleteMedicalRecord = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Check if it exists
-    const existingRecord = await prisma.medical_records.findUnique({
-      where: { record_id: Number(id) },
+    const id = Number(req.params.id);
+    const existing = await prisma.medical_records.findUnique({
+      where: { record_id: id }
     });
-    if (!existingRecord) {
+    if (!existing) {
       return res.status(404).json({ error: 'Medical record not found' });
     }
 
     await prisma.medical_records.delete({
-      where: { record_id: Number(id) },
+      where: { record_id: id }
     });
 
-    return res.status(204).send(); // No Content
+    return res.status(204).send();
   } catch (error) {
     console.error('Error in deleteMedicalRecord:', error);
-    return res.status(500).json({ error: 'Failed to delete the medical record' });
+    return res.status(500).json({ error: 'Failed to delete medical record' });
   }
 };

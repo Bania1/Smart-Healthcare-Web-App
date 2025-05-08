@@ -19,14 +19,17 @@ model appointments {
 }
 
 model medical_records {
-  record_id                               Int      @id @default(autoincrement())
-  date                                    DateTime @db.Date
-  notes                                   String?
-  type                                    String   @db.VarChar(50)
-  patient_id                              Int?
-  doctor_id                               Int?
-  users_medical_records_doctor_idTousers  users?   @relation("medical_records_doctor_idTousers", fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  users_medical_records_patient_idTousers users?   @relation("medical_records_patient_idTousers", fields: [patient_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  record_id   Int      @id @default(autoincrement())
+  date        DateTime @db.Date           // solo fecha
+  time        DateTime? @db.Time          // solo hora
+  type        String   @db.VarChar(50)    // tipo de registro (p.ej. “consulta”, “revisión”)
+  diagnostic  String?  @db.Text           // diagnóstico
+  treatment   String?  @db.Text           // tratamiento
+  patient_id  Int?                       
+  doctor_id   Int?
+
+  users_medical_records_doctor_idTousers  users? @relation("medical_records_doctor_idTousers",fields: [doctor_id],references: [user_id],onDelete: NoAction,onUpdate: NoAction)
+  users_medical_records_patient_idTousers users? @relation("medical_records_patient_idTousers",fields: [patient_id],references: [user_id],onDelete: NoAction,onUpdate: NoAction)
 }
 
 model permissions {

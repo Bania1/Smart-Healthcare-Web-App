@@ -210,6 +210,6 @@ router.post('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRec
 router.put('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.updateMedicalRecord);
 
 // DELETE medical record => "Admin" only
-router.delete('/:id', authMiddleware, roleMiddleware(['Admin']), medicalRecordsController.deleteMedicalRecord);
+router.delete('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.deleteMedicalRecord);
 
 module.exports = router;
