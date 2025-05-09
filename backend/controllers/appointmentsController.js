@@ -5,19 +5,23 @@ const prisma = new PrismaClient();
 
 /**
  * GET /api/appointments
- * Retrieve all appointments (with patient & doctor)
+ * Recupera todas las citas (con datos de paciente y médico).
  */
+// exports.getAllAppointments
 exports.getAllAppointments = async (req, res) => {
   try {
+    const where = {};
+    // Si es paciente, solo sus citas
+    if (req.user.roles.includes('Patient')) {
+      where.patient_id = req.user.userId;
+    }
     const allAppointments = await prisma.appointments.findMany({
+      where,
       include: {
-        users_appointments_patient_idTousers: {
-          select: { user_id: true, name: true, dni: true }
-        },
-        users_appointments_doctor_idTousers: {
-          select: { user_id: true, name: true, dni: true }
-        }
-      }
+        users_appointments_patient_idTousers: { select: { user_id:true, name:true, dni:true } },
+        users_appointments_doctor_idTousers:  { select: { user_id:true, name:true, dni:true } },
+      },
+      orderBy: { date_time: 'desc' }
     });
     return res.status(200).json(allAppointments);
   } catch (error) {
@@ -26,31 +30,22 @@ exports.getAllAppointments = async (req, res) => {
   }
 };
 
-/**
- * GET /api/appointments/:id
- * Retrieve an appointment by ID (with patient & doctor)
- */
+// exports.getAppointmentById
 exports.getAppointmentById = async (req, res) => {
   const id = Number(req.params.id);
-  if (isNaN(id)) {
-    return res.status(400).json({ error: 'Invalid appointment ID' });
-  }
-
   try {
     const appointment = await prisma.appointments.findUnique({
       where: { appointment_id: id },
       include: {
-        users_appointments_patient_idTousers: {
-          select: { user_id: true, name: true, dni: true }
-        },
-        users_appointments_doctor_idTousers: {
-          select: { user_id: true, name: true, dni: true }
-        }
+        users_appointments_patient_idTousers: { select: { user_id:true, name:true, dni:true } },
+        users_appointments_doctor_idTousers:  { select: { user_id:true, name:true, dni:true } },
       }
     });
+    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
 
-    if (!appointment) {
-      return res.status(404).json({ error: 'Appointment not found' });
+    // Si es paciente, verificar que sea SU cita
+    if (req.user.roles.includes('Patient') && appointment.patient_id !== req.user.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
     return res.status(200).json(appointment);
@@ -60,33 +55,48 @@ exports.getAppointmentById = async (req, res) => {
   }
 };
 
+
 /**
  * POST /api/appointments
- * Create a new appointment
+ * Crea una nueva cita.
+ * Acepta:
+ *  - date_time (ISO completo)
+ *  - O bien date (YYYY-MM-DD) + time (HH:MM)
  */
 exports.createAppointment = async (req, res) => {
   try {
-    const { patient_id, doctor_id, date, time, status } = req.body;
+    const { patient_id, doctor_id, date_time, date, time, status } = req.body;
 
-    // Validación básica
-    if (![patient_id, doctor_id, date, time, status].every(v => v !== undefined && v !== '')) {
+    // 1) Validación básica
+    if (
+      !patient_id ||
+      !doctor_id ||
+      !status ||
+      !( date_time || (date && time) )
+    ) {
       return res.status(400).json({
-        error: 'Missing required fields: patient_id, doctor_id, date, time, status'
+        error: 'Missing required fields: patient_id, doctor_id, status, and either date_time OR both date & time'
       });
     }
 
-    // Combina y parsea
-    const iso = `${date}T${time}:00.000Z`;
-    const dateTime = new Date(iso);
-    if (isNaN(dateTime)) {
-      return res.status(400).json({ error: 'Invalid date or time format' });
+    // 2) Construcción del Date
+    let dt;
+    if (date_time) {
+      dt = new Date(date_time);
+    } else {
+      // añadimos segundos y milis, y marcamos Z para UTC
+      dt = new Date(`${date}T${time}:00.000Z`);
+    }
+    if (isNaN(dt)) {
+      return res.status(400).json({ error: 'Invalid date_time or date+time format' });
     }
 
+    // 3) Inserción
     const newAppointment = await prisma.appointments.create({
       data: {
         patient_id: Number(patient_id),
         doctor_id:  Number(doctor_id),
-        date_time:  dateTime,
+        date_time:  dt,
         status
       },
       include: {
@@ -103,14 +113,14 @@ exports.createAppointment = async (req, res) => {
   } catch (createError) {
     console.error('Error in createAppointment:', createError);
     if (createError.code === 'P2003') {
-      return res
-        .status(400)
-        .json({ error: 'Foreign key violation: patient_id or doctor_id does not exist' });
+      return res.status(400).json({
+        error: 'Foreign key violation: patient_id or doctor_id does not exist'
+      });
     }
     if (createError.code === 'P2002') {
-      return res
-        .status(409)
-        .json({ error: 'An appointment with these data already exists' });
+      return res.status(409).json({
+        error: 'An appointment with these data already exists'
+      });
     }
     return res.status(500).json({ error: 'Failed to create the appointment' });
   }
@@ -118,7 +128,8 @@ exports.createAppointment = async (req, res) => {
 
 /**
  * PUT /api/appointments/:id
- * Update an existing appointment
+ * Actualiza una cita existente.
+ * Soporta update parcial de campos y fecha/hora en cualquiera de los dos formatos.
  */
 exports.updateAppointment = async (req, res) => {
   const id = Number(req.params.id);
@@ -134,18 +145,21 @@ exports.updateAppointment = async (req, res) => {
       return res.status(404).json({ error: 'Appointment not found' });
     }
 
-    const { patient_id, doctor_id, date, time, status } = req.body;
+    const { patient_id, doctor_id, date_time, date, time, status } = req.body;
     const data = {};
 
-    if (patient_id !== undefined) data.patient_id = Number(patient_id);
-    if (doctor_id  !== undefined) data.doctor_id  = Number(doctor_id);
-    if (status     !== undefined) data.status     = status;
+    if (patient_id   !== undefined) data.patient_id = Number(patient_id);
+    if (doctor_id    !== undefined) data.doctor_id  = Number(doctor_id);
+    if (status       !== undefined) data.status     = status;
 
-    if (date !== undefined && time !== undefined) {
-      const iso = `${date}T${time}:00.000Z`;
-      const dt  = new Date(iso);
+    // Solo si recibimos algo para la fecha/hora
+    if (date_time || (date && time)) {
+      let dt;
+      if (date_time) dt = new Date(date_time);
+      else            dt = new Date(`${date}T${time}:00.000Z`);
+
       if (isNaN(dt)) {
-        return res.status(400).json({ error: 'Invalid date or time format' });
+        return res.status(400).json({ error: 'Invalid date_time or date+time format' });
       }
       data.date_time = dt;
     }
@@ -167,14 +181,14 @@ exports.updateAppointment = async (req, res) => {
   } catch (updateError) {
     console.error('Error in updateAppointment:', updateError);
     if (updateError.code === 'P2003') {
-      return res
-        .status(400)
-        .json({ error: 'Foreign key violation: patient_id or doctor_id does not exist' });
+      return res.status(400).json({
+        error: 'Foreign key violation: patient_id or doctor_id does not exist'
+      });
     }
     if (updateError.code === 'P2002') {
-      return res
-        .status(409)
-        .json({ error: 'An appointment with these data already exists' });
+      return res.status(409).json({
+        error: 'An appointment with these data already exists'
+      });
     }
     return res.status(500).json({ error: 'Failed to update the appointment' });
   }
@@ -182,7 +196,6 @@ exports.updateAppointment = async (req, res) => {
 
 /**
  * DELETE /api/appointments/:id
- * Delete an appointment
  */
 exports.deleteAppointment = async (req, res) => {
   const id = Number(req.params.id);
