@@ -194,10 +194,10 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  */
 
 // GET all appointments => either "Doctor" or "Admin"
-router.get('/', authMiddleware, roleMiddleware(['Doctor', 'Admin', 'Patient']), appointmentsController.getAllAppointments);
+router.get('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), appointmentsController.getAllAppointments);
 
 // GET appointment by ID => "Doctor" or "Admin"
-router.get('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin', 'Patient']), appointmentsController.getAppointmentById);
+router.get('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), appointmentsController.getAppointmentById);
 
 // POST create => "Doctor" or "Admin"
 router.post('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), appointmentsController.createAppointment);
