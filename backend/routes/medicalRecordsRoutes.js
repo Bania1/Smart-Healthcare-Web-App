@@ -198,10 +198,10 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  */
 
 // GET all medical records => "Doctor" or "Admin"
-router.get('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.getAllMedicalRecords);
+router.get('/', authMiddleware, roleMiddleware(['Doctor', 'Admin', 'Patient']), medicalRecordsController.getAllMedicalRecords);
 
 // GET a medical record by ID => "Doctor" or "Admin"
-router.get('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.getMedicalRecordById);
+router.get('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin', 'Patient']), medicalRecordsController.getMedicalRecordById);
 
 // POST create medical record => "Doctor" or "Admin"
 router.post('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.createMedicalRecord);
@@ -210,6 +210,6 @@ router.post('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRec
 router.put('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.updateMedicalRecord);
 
 // DELETE medical record => "Admin" only
-router.delete('/:id', authMiddleware, roleMiddleware(['Admin']), medicalRecordsController.deleteMedicalRecord);
+router.delete('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.deleteMedicalRecord);
 
 module.exports = router;

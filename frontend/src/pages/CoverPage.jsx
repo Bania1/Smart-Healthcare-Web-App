@@ -1,17 +1,25 @@
 // src/pages/CoverPage.jsx
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useContext } from 'react';
+import { Link, Navigate } from 'react-router-dom';
+import { AuthContext } from '../auth/AuthContext';
 
 export default function CoverPage() {
+  const { user } = useContext(AuthContext);
+
+  // Si ya estamos autenticados, redirige al hub
+  if (user) {
+    return <Navigate to="/home" replace />;
+  }
+
   return (
-    <div className="d-flex flex-column vh-100 justify-content-center align-items-center">
-      <h1 className="display-4 mb-4">Smart Healthcare</h1>
-      <p className="lead mb-5">Tu plataforma de gestión médica</p>
+    <div className="d-flex flex-column align-items-center justify-content-center vh-100">
+      <h1 className="mb-4">Smart Healthcare</h1>
+      <p className="mb-4">Bienvenido a nuestra plataforma médica</p>
       <div>
-        <Link to="/login" className="btn btn-primary btn-lg me-3">
-          Iniciar sesión
+        <Link to="/login" className="btn btn-primary me-2">
+          Iniciar Sesión
         </Link>
-        <Link to="/register" className="btn btn-outline-primary btn-lg">
+        <Link to="/register" className="btn btn-secondary">
           Registrarse
         </Link>
       </div>
