@@ -1,10 +1,17 @@
 import React, { useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
-  if (!user) return null;
+  if (!user) return null;  // ocultar si no hay sesión
+
+  const links = [
+    { to: '/home', label: 'Inicio' },
+    { to: '/users', label: 'Usuarios' },
+    { to: '/appointments', label: 'Citas' },
+    { to: '/medical-records', label: 'Historiales' }
+  ];
 
   const isDoctor  = user.roles.includes('Doctor');
   const isPatient = user.roles.includes('Patient');
