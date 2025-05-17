@@ -22,12 +22,17 @@ const usersDetailsRoutes = require('./routes/usersDetailsRoutes');
 // Import the error middleware
 const errorMiddleware = require('./middleware/errorMiddleware');
 
-// 1) Habilitar CORS **antes** de las rutas
-app.use(cors({
-  origin: 'http://localhost:5173',   // tu frontend
-  methods: ['GET','POST','PUT','DELETE'],
-  allowedHeaders: ['Content-Type','Authorization']
-}));
+// 1) Configure CORS **before** body parsers and routes
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,            // if you ever set cookies
+  optionsSuccessStatus: 204,    // response code for preflight
+};
+app.use(cors(corsOptions));
+// also handle preflight across-the-board
+app.options('*', cors(corsOptions));
 
 // 2) Parse JSON bodies
 app.use(express.json());
@@ -40,7 +45,7 @@ app.get('/', (req, res) => {
 // 4) Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// 5) Montar rutas REST
+// 5) Mount REST routers
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/appointments', appointmentsRoutes);
@@ -59,7 +64,7 @@ app.use((req, res) => {
 // 7) Error handler
 app.use(errorMiddleware);
 
-// 8) Iniciar servidor
+// 8) Start server
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);
   console.log(`Swagger docs available at http://localhost:${port}/api-docs`);

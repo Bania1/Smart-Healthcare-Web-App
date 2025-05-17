@@ -148,19 +148,33 @@ exports.deleteUser = async (req, res) => {
  */
 exports.searchUsers = async (req, res) => {
   try {
-    const { role, q } = req.query;
-    if (!role || !q) {
-      return res.status(400).json({ error: 'Se requiere role y q' });
+    let { role, q } = req.query;
+
+    // 1) Must have role
+    if (!role) {
+      return res.status(400).json({ error: 'Se requiere role' });
     }
-    const roleName = role.toLowerCase() === 'doctor' ? 'Doctor' : 'Patient';
+
+    // 2) Default empty q → match all
+    q = q || '';
+
+    // 3) Normalize role
+    const roleName =
+      role.toLowerCase() === 'doctor'
+        ? 'Doctor'
+        : role.toLowerCase() === 'admin'
+        ? 'Admin'
+        : 'Patient';
+
+    // 4) Query for users with that role, whose name or dni contains q
     const users = await prisma.users.findMany({
       where: {
         AND: [
           { user_roles: { some: { roles: { role_name: roleName } } } },
           {
             OR: [
-              { name:  { contains: q, mode: 'insensitive' } },
-              { dni:   { contains: q, mode: 'insensitive' } }
+              { name: { contains: q, mode: 'insensitive' } },
+              { dni:  { contains: q, mode: 'insensitive' } }
             ]
           }
         ]
@@ -168,9 +182,45 @@ exports.searchUsers = async (req, res) => {
       take: 10,
       select: { user_id: true, name: true, dni: true }
     });
+
     return res.json(users);
   } catch (err) {
     console.error('Error in searchUsers:', err);
     return res.status(500).json({ error: 'Error al buscar usuarios' });
   }
 };
+
+
+
+// /**
+//  * GET /api/users/search
+//  * Query params: ?role=Patient|Doctor&q=text
+//  */
+// exports.searchUsers = async (req, res) => {
+//   try {
+//     const { role, q } = req.query;
+//     if (!role || !q) {
+//       return res.status(400).json({ error: 'Se requiere role y q' });
+//     }
+//     const roleName = role.toLowerCase() === 'doctor' ? 'Doctor' : 'Patient';
+//     const users = await prisma.users.findMany({
+//       where: {
+//         AND: [
+//           { user_roles: { some: { roles: { role_name: roleName } } } },
+//           {
+//             OR: [
+//               { name:  { contains: q, mode: 'insensitive' } },
+//               { dni:   { contains: q, mode: 'insensitive' } }
+//             ]
+//           }
+//         ]
+//       },
+//       take: 10,
+//       select: { user_id: true, name: true, dni: true }
+//     });
+//     return res.json(users);
+//   } catch (err) {
+//     console.error('Error in searchUsers:', err);
+//     return res.status(500).json({ error: 'Error al buscar usuarios' });
+//   }
+// };

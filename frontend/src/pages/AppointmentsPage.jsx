@@ -99,7 +99,8 @@ export default function AppointmentsPage() {
   // ── ADD / PEDIR ──
   const openAdd = () => {
     setForm({
-      patient_id: isPatient ? user.userId : '',
+      // use user.user_id (from your AuthContext), not user.userId
+      patient_id: isPatient ? user.user_id : '',
       doctor_id:  '',
       date:       '',
       time:       '',
@@ -110,8 +111,9 @@ export default function AppointmentsPage() {
   const submitAdd = async () => {
     try {
       await api.post('/api/appointments', {
+       // again, pull from user.user_id
         patient_id: isPatient
-          ? user.userId
+          ? user.user_id
           : Number(form.patient_id),
         doctor_id:  Number(form.doctor_id),
         date:       form.date,

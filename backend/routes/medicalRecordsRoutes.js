@@ -1,8 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const medicalRecordsController = require('../controllers/medicalRecordsController');
-const authMiddleware = require('../middleware/authMiddleware');
-const roleMiddleware = require('../middleware/roleMiddleware');
+// backend/src/routes/medicalRecordsRoutes.js
+const express                     = require('express');
+const router                      = express.Router();
+const medicalRecordsController    = require('../controllers/medicalRecordsController');
+const authMiddleware              = require('../middleware/authMiddleware');
+const roleMiddleware              = require('../middleware/roleMiddleware');
 
 /**
  * @swagger
@@ -52,19 +53,12 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *     responses:
  *       200:
  *         description: A list of medical records
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/MedicalRecord'
  *       401:
  *         description: Missing or invalid token
  *       403:
  *         description: Forbidden (role not allowed)
  *       500:
  *         description: Server error
- *
  *   post:
  *     summary: Create a new medical record
  *     tags: [MedicalRecords]
@@ -77,12 +71,6 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/MedicalRecord'
- *           example:
- *             date: "2025-03-26"
- *             notes: "Initial diagnosis"
- *             type: "Checkup"
- *             patient_id: 10
- *             doctor_id: 7
  *     responses:
  *       201:
  *         description: Medical record created
@@ -107,17 +95,12 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *     parameters:
  *       - in: path
  *         name: id
- *         description: The ID of the medical record
  *         required: true
  *         schema:
  *           type: integer
  *     responses:
  *       200:
  *         description: The medical record data
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/MedicalRecord'
  *       401:
  *         description: Missing or invalid token
  *       403:
@@ -126,7 +109,6 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *         description: Medical record not found
  *       500:
  *         description: Server error
- *
  *   put:
  *     summary: Update a medical record
  *     tags: [MedicalRecords]
@@ -135,7 +117,6 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *     parameters:
  *       - in: path
  *         name: id
- *         description: The ID of the medical record
  *         required: true
  *         schema:
  *           type: integer
@@ -146,12 +127,6 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/MedicalRecord'
- *           example:
- *             date: "2025-04-10"
- *             notes: "Follow-up notes"
- *             type: "Consultation"
- *             patient_id: 12
- *             doctor_id: 7
  *     responses:
  *       200:
  *         description: Medical record updated
@@ -165,7 +140,6 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *         description: Medical record not found
  *       500:
  *         description: Server error
- *
  *   delete:
  *     summary: Delete a medical record
  *     tags: [MedicalRecords]
@@ -174,7 +148,6 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *     parameters:
  *       - in: path
  *         name: id
- *         description: The ID of the medical record
  *         required: true
  *         schema:
  *           type: integer
@@ -197,19 +170,44 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  * - Only "Admin" can DELETE.
  */
 
-// GET all medical records => "Doctor" or "Admin"
-router.get('/', authMiddleware, roleMiddleware(['Doctor', 'Admin', 'Patient']), medicalRecordsController.getAllMedicalRecords);
+// GET all medical records ⇒ Doctor, Admin or Patient
+router.get(
+  '/',
+  authMiddleware,
+  roleMiddleware('Doctor', 'Admin', 'Patient'),
+  medicalRecordsController.getAllMedicalRecords
+);
 
-// GET a medical record by ID => "Doctor" or "Admin"
-router.get('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin', 'Patient']), medicalRecordsController.getMedicalRecordById);
+// GET a medical record by ID ⇒ Doctor, Admin or Patient
+router.get(
+  '/:id',
+  authMiddleware,
+  roleMiddleware('Doctor', 'Admin', 'Patient'),
+  medicalRecordsController.getMedicalRecordById
+);
 
-// POST create medical record => "Doctor" or "Admin"
-router.post('/', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.createMedicalRecord);
+// POST create medical record ⇒ Doctor or Admin
+router.post(
+  '/',
+  authMiddleware,
+  roleMiddleware('Doctor', 'Admin'),
+  medicalRecordsController.createMedicalRecord
+);
 
-// PUT update medical record => "Doctor" or "Admin"
-router.put('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.updateMedicalRecord);
+// PUT update medical record ⇒ Doctor or Admin
+router.put(
+  '/:id',
+  authMiddleware,
+  roleMiddleware('Doctor', 'Admin'),
+  medicalRecordsController.updateMedicalRecord
+);
 
-// DELETE medical record => "Admin" only
-router.delete('/:id', authMiddleware, roleMiddleware(['Doctor', 'Admin']), medicalRecordsController.deleteMedicalRecord);
+// DELETE medical record ⇒ Admin only
+router.delete(
+  '/:id',
+  authMiddleware,
+  roleMiddleware('Admin'),
+  medicalRecordsController.deleteMedicalRecord
+);
 
 module.exports = router;
