@@ -113,168 +113,178 @@ export default function UsersPage() {
   const paged = filtered.slice(start, start + itemsPerPage);
 
   return (
-    <div className="container mt-4">
-      <h2>Listado de Usuarios</h2>
+    <div className="page-container">
+      <div className="page-card">
+        <h2>Listado de Usuarios</h2>
 
-      {/* Botón +Modal Añadir */}
-      <Button variant="success" className="mb-3" onClick={openAdd}>
-        + Nuevo Usuario
-      </Button>
+        {/* Botón +Modal Añadir */}
+        <Button variant="success" className="mb-3" onClick={openAdd}>
+          + Nuevo Usuario
+        </Button>
 
-      {/* Búsqueda */}
-      <InputGroup className="mb-3">
-        <FormControl
-          placeholder="Buscar por nombre, DNI o email…"
-          value={search}
-          onChange={e => {
-            setSearch(e.target.value);
-            setCurrentPage(1);
-          }}
-        />
-      </InputGroup>
+        {/* Búsqueda */}
+        <InputGroup className="mb-3">
+          <FormControl
+            placeholder="Buscar por nombre, DNI o email…"
+            value={search}
+            onChange={e => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+        </InputGroup>
 
-      {/* Tabla */}
-      <Table striped bordered hover responsive>
-        <thead className="table-light">
-          <tr>
-            <th>ID</th>
-            <th>Nombre</th>
-            <th>DNI</th>
-            <th>Email</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {paged.map(u => (
-            <tr key={u.user_id}>
-              <td>{u.user_id}</td>
-              <td>{u.name}</td>
-              <td>{u.dni}</td>
-              <td>{u.email}</td>
-              <td>
-                <Button
-                  size="sm"
-                  className="me-2"
-                  onClick={() => openEdit(u)}
-                >
-                  Editar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => openDel(u)}
-                >
-                  Borrar
-                </Button>
-              </td>
-            </tr>
-          ))}
-          {paged.length === 0 && (
+        {/* Tabla */}
+        <Table className="table-custom" striped bordered hover responsive>
+          <thead className="table-light">
             <tr>
-              <td colSpan="5" className="text-center">
-                No hay resultados
-              </td>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>DNI</th>
+              <th>Email</th>
+              <th>Acciones</th>
             </tr>
-          )}
-        </tbody>
-      </Table>
-
-      {/* Paginación */}
-      {totalPages > 1 && (
-        <Pagination className="justify-content-center">
-          {[...Array(totalPages)].map((_, idx) => (
-            <Pagination.Item
-              key={idx}
-              active={currentPage === idx + 1}
-              onClick={() => setCurrentPage(idx + 1)}
-            >
-              {idx + 1}
-            </Pagination.Item>
-          ))}
-        </Pagination>
-      )}
-
-      {/* ─── MODAL AÑADIR ─── */}
-      <Modal show={showAdd} onHide={() => setShowAdd(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Nuevo Usuario</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            {['name', 'dni', 'email'].map(field => (
-              <Form.Group className="mb-3" key={field}>
-                <Form.Label>
-                  {field.charAt(0).toUpperCase() + field.slice(1)}
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  name={field}
-                  value={form[field]}
-                  onChange={handleChange}
-                />
-              </Form.Group>
+          </thead>
+          <tbody>
+            {paged.map(u => (
+              <tr key={u.user_id}>
+                <td>{u.user_id}</td>
+                <td>{u.name}</td>
+                <td>{u.dni}</td>
+                <td>{u.email}</td>
+                <td>
+                  <Button
+                    size="sm"
+                    className="me-2"
+                    onClick={() => openEdit(u)}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => openDel(u)}
+                  >
+                    Borrar
+                  </Button>
+                </td>
+              </tr>
             ))}
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAdd(false)}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={submitAdd}>
-            Crear
-          </Button>
-        </Modal.Footer>
-      </Modal>
+            {paged.length === 0 && (
+              <tr>
+                <td colSpan="5" className="text-center">
+                  No hay resultados
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
 
-      {/* ─── MODAL EDITAR ─── */}
-      <Modal show={showEdit} onHide={() => setShowEdit(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Editar Usuario #{current?.user_id}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            {['name', 'dni', 'email'].map(field => (
-              <Form.Group className="mb-3" key={field}>
-                <Form.Label>
-                  {field.charAt(0).toUpperCase() + field.slice(1)}
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  name={field}
-                  value={form[field]}
-                  onChange={handleChange}
-                />
-              </Form.Group>
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <Pagination className="justify-content-center">
+            <Pagination.Prev
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            />
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <Pagination.Item
+                key={idx}
+                active={currentPage === idx + 1}
+                onClick={() => setCurrentPage(idx + 1)}
+              >
+                {idx + 1}
+              </Pagination.Item>
             ))}
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowEdit(false)}>
-            Cancelar
-          </Button>
-          <Button variant="primary" onClick={submitEdit}>
-            Guardar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+            <Pagination.Next
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            />
+          </Pagination>
+        )}
 
-      {/* ─── MODAL BORRAR ─── */}
-      <Modal show={showDel} onHide={() => setShowDel(false)} centered>
-        <Modal.Header closeButton className="bg-danger text-white">
-          <Modal.Title>Confirmar borrado</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          ¿Seguro que quieres borrar <strong>#{current?.user_id} {current?.name}</strong>?
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="light" onClick={() => setShowDel(false)}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={submitDel}>
-            Borrar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        {/* ─── MODAL AÑADIR ─── */}
+        <Modal show={showAdd} onHide={() => setShowAdd(false)}>
+          <Modal.Header closeButton>
+            <Modal.Title>Nuevo Usuario</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              {['name', 'dni', 'email'].map(field => (
+                <Form.Group className="mb-3" key={field}>
+                  <Form.Label>
+                    {field.charAt(0).toUpperCase() + field.slice(1)}
+                  </Form.Label>
+                  <Form.Control
+                    type="text"
+                    name={field}
+                    value={form[field]}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+              ))}
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowAdd(false)}>
+              Cancelar
+            </Button>
+            <Button variant="success" onClick={submitAdd}>
+              Crear
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* ─── MODAL EDITAR ─── */}
+        <Modal show={showEdit} onHide={() => setShowEdit(false)}>
+          <Modal.Header closeButton>
+            <Modal.Title>Editar Usuario #{current?.user_id}</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              {['name', 'dni', 'email'].map(field => (
+                <Form.Group className="mb-3" key={field}>
+                  <Form.Label>
+                    {field.charAt(0).toUpperCase() + field.slice(1)}
+                  </Form.Label>
+                  <Form.Control
+                    type="text"
+                    name={field}
+                    value={form[field]}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+              ))}
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowEdit(false)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={submitEdit}>
+              Guardar
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* ─── MODAL BORRAR ─── */}
+        <Modal show={showDel} onHide={() => setShowDel(false)} centered>
+          <Modal.Header closeButton className="bg-danger text-white">
+            <Modal.Title>Confirmar borrado</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            ¿Seguro que quieres borrar <strong>#{current?.user_id} {current?.name}</strong>?
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="light" onClick={() => setShowDel(false)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={submitDel}>
+              Borrar
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      </div>
     </div>
   );
 }
