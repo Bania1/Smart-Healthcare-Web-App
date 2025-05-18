@@ -14,29 +14,46 @@ const recordInclude = {
 /**
  * GET /api/medical-records
  */
+// controllers/medicalRecordsController.js
 exports.getAllMedicalRecords = async (req, res) => {
   try {
+    const page      = Math.max(1, parseInt(req.query.page) || 1);
+    const size      = Math.max(1, parseInt(req.query.size) || 10);
+    const skip      = (page - 1) * size;
+    const { type, date } = req.query;
+
+    // Build where-clause
     const where = {};
-    // If user is a patient, restrict to their own records
     if (req.user.roles.includes('Patient')) {
       where.patient_id = req.user.user_id;
     }
+    if (type) {
+      where.type = { contains: type, mode: 'insensitive' };
+    }
+    if (date) {
+      // exact date match
+      where.date = new Date(date);
+    }
 
+    const totalCount = await prisma.medical_records.count({ where });
     const records = await prisma.medical_records.findMany({
       where,
       include: recordInclude,
       orderBy: [
         { date: 'desc' },
         { time: 'desc' }
-      ]
+      ],
+      skip,
+      take: size
     });
 
-    return res.json(records);
+    return res.json({ records, totalCount });
   } catch (error) {
     console.error('Error in getAllMedicalRecords:', error);
     return res.status(500).json({ error: error.message });
   }
 };
+
 
 /**
  * GET /api/medical-records/:id
